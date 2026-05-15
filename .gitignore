@@ -1,0 +1,30 @@
+# Python
+*.py[cod]
+__pycache__/
+*.sqlite3
+*.env
+.env.*
+.venv/
+venv/
+backend/.venv/
+backend/.venv-tf/
+backend/venv/
+*.log
+
+# Node
+node_modules/
+frontend/node_modules/
+pnpm-lock.yaml
+package-lock.json
+
+# Build outputs
+dist/
+frontend/dist/
+
+# IDE and tooling
+.vscode/
+.idea/
+.DS_Store
+
+# GitHub
+.github/
