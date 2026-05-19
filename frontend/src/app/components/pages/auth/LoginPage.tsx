@@ -55,7 +55,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full max-w-md mx-auto px-4">
       <div className="bg-white rounded-lg border border-neutral-200 p-8 shadow-sm">
         <div className="flex justify-center mb-6">
           <div className="w-16 h-16 bg-red-600 rounded-lg flex items-center justify-center">
