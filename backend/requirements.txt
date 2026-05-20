@@ -10,6 +10,10 @@ Pillow>=10.0.0
 mediapipe>=0.10.0,<0.11.0
 gunicorn>=21.0.0
 
+tensorflow>=2.20.0,<2.21.0
+tensorflow-hub>=0.14.0
+ultralytics>=8.0.0
+
 # Optional ML dependencies for facial recognition
 # tensorflow>=2.13.1,<2.14.0
 # tensorflow-hub>=0.14.0
