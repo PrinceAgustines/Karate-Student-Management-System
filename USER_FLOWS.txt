@@ -1,0 +1,122 @@
+Karate Student Management System — User Flows
+
+1) Admin / Instructor Flow
+
+Login and access
+- Go to /auth/login in the frontend.
+- Authenticate using email/username and password via `/api/users/login/`.
+- Receive JWT access and refresh tokens for authenticated backend access.
+- RoleGuard grants access to admin/instructor dashboards and management pages.
+
+ID management and registration support
+- Use `ID Management` to generate or manage `SystemID` records for students, instructors, parents, and admins.
+- Generated `SystemID` codes are stored in `SystemID` model and can be assigned later.
+- Instructor/Admin can validate a student or parent ID before registration.
+
+Student registration and profile management
+- Register a new student using `/api/students/register/`.
+- Provide a valid student `SystemID` and student profile details.
+- Backend creates a `Student` record, assigns the `SystemID`, and saves an application number.
+- Edit student data through `/api/students/students/{id}/`.
+- Updates automatically trigger notifications for profile updates and promotions.
+
+Attendance management
+- Schedule classes using `/api/students/sessions/`.
+- When creating or updating sessions, the backend sends notifications to students, parents, and admin.
+- For attendance tracking, upload class photos to the facial recognition flow.
+- Use `/api/students/facial-recognition/record_batch_attendance/` with matched faces to save `Attendance` records.
+- Manually adjust attendance via `/api/students/facial-recognition/record_manual_attendance/` if needed.
+
+Pose evaluation and performance scoring
+- Upload pose templates with stance media via `/api/students/pose-templates/`.
+- For student analysis, upload photo/video to `/api/students/stance-evaluations/analyze/`.
+- Backend analyzes the media, calculates landmarks, classifies stances, and creates a `StanceEvaluation` record.
+- Instructor ratings are created/updated via `/api/students/instructor-ratings/`.
+- `KataRating` and `KumiteRating` records store monthly performance, and analytics are updated.
+
+Analytics and gamification
+- View performance dashboards, progression insights, and attendance trends.
+- Access `/api/students/analytics/overview/` for aggregated metrics and recommendations.
+- Check gamification leaderboard and badges via `/api/students/students/gamification/leaderboard/` and related endpoints.
+- Leverage `PerformanceSummary`, `BeltProgressionIndicator`, and `ProgressionInsight` records to guide coaching.
+
+Inventory and shop management
+- Manage inventory items using `/api/students/inventories/`.
+- Review orders created by users, confirm or complete them through `/api/students/orders/`.
+- Monitor stock availability and pending order totals.
+
+Notifications
+- Notifications are created for class schedules, grading, promotions, and student events.
+- View notifications through `/api/students/notifications/`.
+- Mark notifications as read or delete them as needed.
+
+
+2) Student Flow
+
+Login and dashboard
+- Log in using email/password at `/auth/login`.
+- Receive JWT access token and access student dashboard.
+- RoleGuard grants student-only views like the student dashboard and personal profile.
+
+Profile and registration
+- A student may be registered by an admin/instructor using a `SystemID`.
+- Student profile data is stored in `Student` and related personal models (contacts, addresses, emergency contacts).
+- Student profile changes may generate notifications and update belt readiness.
+
+Attendance
+- Attend scheduled sessions created by instructors/admins.
+- Attendance may be recorded automatically via facial recognition after the student appears in class photos.
+- Attendance records store `time_in`, `time_out`, session details, and recognition confidence.
+
+Pose and performance
+- Students can submit media for pose evaluation.
+- The system analyzes stance using stored pose templates and returns a scored `StanceEvaluation`.
+- Students receive grading results and can view their kata/kumite scores.
+- Gamification progress, badges, and level information are visible on the student dashboard.
+
+Education and promotion
+- Students can see belt progression readiness and performance summaries.
+- `BeltProgressionIndicator` shows readiness status (not ready, in progress, ready, promoted).
+- `PerformanceSummary` shows averages and trends over monthly or quarterly periods.
+
+Notifications
+- Students receive notifications for schedule changes, grade postings, promotions, and achievements.
+- Notifications are available on the notifications page and can be marked read.
+
+Shop and inventory
+- Students can browse available inventory items in the shop.
+- Add items to the cart and create an order for purchase.
+- Order status lifecycle: pending → confirmed → completed → cancelled.
+
+
+3) Parent Flow
+
+Parent account creation
+- Register as a parent using a valid parent `SystemID` via `/api/users/register/`.
+- Parent registration validates the parent code and marks the `SystemID` as assigned.
+- Parents can log in through `/api/users/parent-login/` with parent ID and password.
+
+Child relationship and access
+- Parents are linked to students via `ParentStudent` relationships.
+- Once logged in, parents can view pages for their children and related student data.
+- Parent routes are protected by RoleGuard and limited to parent-specific views.
+
+Notifications and student updates
+- Parents receive notifications for child schedules, attendance, promotions, and grading.
+- Common notifications include `child_upcoming_class`, `child_attended_class`, `child_promotion_achieved`, and `child_grading_available`.
+- Parents can read notifications and track ongoing student activities.
+
+Performance visibility
+- Parents can access child performance dashboards and progress summaries.
+- Gamification and badge updates may be visible for their child.
+- Parents can see when a child is promotion-ready or has new grading results.
+
+Shop and payments
+- Parents can use the shop to buy inventory items for their child.
+- Orders are created and tracked in the same lifecycle as other users.
+- Parent orders include delivery details, contact information, and status updates.
+
+Common shared experiences
+- All roles see notifications, session announcements, and schedule changes relevant to them.
+- Parents and students share access to child-specific progress and attendance information.
+- Only admin/instructor roles can manage system IDs, student registration, and attendance policies.

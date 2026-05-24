@@ -1,0 +1,88 @@
+Karate Student Management System — System Overview
+
+Purpose:
+Here's a concise description of architecture, data model, and main user flows (registration, authentication, attendance, pose evaluation, analytics, gamification, inventory/shop).
+
+1) Architecture
+- Backend: Django + Django REST Framework (backend/). JWT auth via SimpleJWT. Custom user model: users.CustomUser (email as USERNAME_FIELD).
+- Frontend: React + Vite (frontend/) with route-based pages and an `AuthProvider`.
+- Database: PostgreSQL / Supabase (configured by environment variables in backend/.env).
+- Machine Learning?: MediaPipe / TensorFlow / YOLO for pose analysis; OpenCV/MediaPipe / FaceRecognition library for facial detection. Features requires Python3.11.9 venv and Requirements.txt.
+
+2) Key backend components (important files)
+- Authentication: backend/users (models.py, serializers.py, views.py). Parent logins and custom token serializer allow ID-based login and JWT tokens.
+- Students app: backend/students — models.py (Student, FaceData, PoseTemplate, Session, Attendance, StanceEvaluation, SystemID, Gamification models, Inventory/Order models), serializers.py, views.py, urls.py.
+- Facial recognition: backend/students/facial_recognition/service.py — detects faces, encodes, matches against enrolled `FaceData`, supports group-photo attendance and per-student enrollment.
+- Pose evaluation: backend/students/pose_evaluation/service.py — extracts pose landmarks (MediaPipe), creates and stores `PoseTemplate`, analyzes uploaded media to produce `StanceEvaluation` results and scores.
+- Settings: backend/dojo_backend/settings.py — registers `users` and `students` apps, configures DB, `AUTH_USER_MODEL`, REST framework JWT auth, media storage and CORS.
+
+3) Main data model highlights
+- `Student`: core profile and role (Student/Instructor). Application number generated on save.
+- `SystemID`: pre-generated codes (student/parent/instructor/admin) used for registration and parent accounts.
+- `FaceData`: per-student stored face encodings (base64) and image metadata.
+- `PoseTemplate`: stance labels, saved media, and landmark JSON used for template matching.
+- `Session` and `Attendance`: schedule sessions and attendance records; attendance stores recognition confidence.
+- `StanceEvaluation`: stores pose analysis results, score, remarks, and analysis_details (JSON).
+- E-commerce: `Inventory`, `Cart`, `Order`, `OrderItem`, supporting simple shop flows.
+- Gamification: `GamificationProfile`, `BadgeDefinition`, `StudentBadge`, `ChallengeDefinition` to track XP, levels, and badges.
+
+4) Primary user flows
+- Registration
+  - Admin generates `SystemID` codes (via system-ids endpoints).
+  - Student registration: frontend calls `/api/students/register/` with a `student_id` code; `StudentRegistrationView` creates Student and assigns `SystemID`.
+  - Parent registration: `users.RegisterView` validates parent `SystemID` and marks it assigned.
+
+- Authentication
+  - JWT tokens via `/api/users/login/` (CustomTokenObtainPair). Parents have a dedicated parent-login flow as well.
+  - Frontend stores tokens in `localStorage` keys used by `frontend/src/app/api.ts` to add Authorization headers.
+
+- Facial-recognition attendance flow
+  - Enrollment: admin/instructor uploads per-student images or saves face encodings; `FacialRecognitionService.enroll_student_face` or `save_face_encoding` stores base64 encodings in `FaceData`.
+  - Group photo attendance: upload group photo -> `process_group_photo` detects faces, encodes each face, and matches against known encodings using cosine similarity with fallbacks. Matches return `confirmed_matches`, `ambiguous_matches`, and `unmatched_faces`.
+  - Frontend calls `record_batch_attendance` endpoint with matched candidates (see `api.ts` functions) to persist `Attendance` records. Attendance stores recognition confidence; ambiguous results can be handled manually.
+  - Thresholds & fallbacks: service favors MediaPipe, falls back to Haar cascades and pixel-hash encoding if necessary; matching enforces margin checks (second-best - best) and thresholds to reduce false positives.
+
+- Pose evaluation (performance) flow
+  - Pose templates: instructors upload media via `pose-templates/` endpoint; `PoseEvaluationService.create_pose_template` extracts landmarks and saves a `PoseTemplate` (landmarks JSON + media).
+  - Analyze student media: frontend uploads image/video to `stance-evaluations/analyze/` which calls `PoseEvaluationService.analyze_pose_media`.
+  - Analysis: MediaPipe (or fallbacks) extracts landmarks per frame; classification uses template matching first (cosine/weighted similarity) and heuristic rules as fallback; returns detected stances and a primary score.
+  - Result persistence: `StanceEvaluation` is created with score, analysis_details (frame-by-frame data), and notifications are triggered.
+
+- Sessions & notifications
+  - Creating/updating `Session` triggers `Notification` creation for students, parents, and admin (see `SessionViewSet.perform_create`/`perform_update`).
+  - Many actions (profile updates, grading, promotions, attendance) generate notifications saved in `Notification` model and surfaced via `/api/students/notifications/`.
+
+- Gamification & Analytics
+  - `performance_services` (imported by views) produces `KataRating`, `KumiteRating`, `PerformanceSummary`, `BeltProgressionIndicator`, and `ProgressionInsight`.
+  - Views expose leaderboards, badge summaries, progression endpoints and analytics overview (`AnalyticsOverviewView`) aggregating attendance, trends, and recommendations.
+
+- Inventory / Shop
+  - Students/parents can add `Inventory` items to `Cart`, create `Order` objects; order lifecycle: pending -> confirmed -> completed -> cancelled. Admins confirm orders; order items snapshot price/name at time of order.
+
+5) Frontend structure & flows
+- Entry: `frontend/src/main.tsx` mounts `App` which wraps `AuthProvider` and `RouterProvider` (routes defined in `frontend/src/app/routes.tsx`).
+- Role-based UI: `RoleGuard` protects routes by `CustomUser.role` (admin, instructor, student, parent).
+- API client: `frontend/src/app/api.ts` centralizes calls to backend endpoints (auth, students, attendance, facial-recognition, pose evaluation, gamification, inventory). `VITE_API_BASE` sets backend base URL.
+- Key pages: login/register, dashboards per role, student list/profile, attendance tracker, pose evaluation upload/analyze, ID management, analytics, gamification, shop, notifications.
+
+6) Deployment & local development notes
+- Backend: create virtualenv, install `requirements.txt` (and `requirements-tf.txt` for pose features), set `.env` (DB + secrets), run `python manage.py migrate` and `python manage.py runserver`.
+- Frontend: `pnpm install` then `pnpm run dev` (Vite dev server). `VITE_API_BASE` should point to backend.
+- Media/ML models: MediaPipe model files are downloaded automatically by services if missing (face detection, pose landmarker); TensorFlow-based features may require a separate TF-capable interpreter (the repo mentions `.venv-tf` hints).
+
+7) Where to inspect code (quick links)
+- Backend settings: [backend/dojo_backend/settings.py](backend/dojo_backend/settings.py#L1-L200)
+- Students app entrypoints: [backend/students/models.py](backend/students/models.py#L1-L200), [backend/students/views.py](backend/students/views.py#L1-L120)
+- Facial recognition service: [backend/students/facial_recognition/service.py](backend/students/facial_recognition/service.py#L1-L80)
+- Pose evaluation service: [backend/students/pose_evaluation/service.py](backend/students/pose_evaluation/service.py#L1-L80)
+- Frontend routes & API: [frontend/src/app/routes.tsx](frontend/src/app/routes.tsx#L1-L80), [frontend/src/app/api.ts](frontend/src/app/api.ts#L1-L40)
+
+8) Recommended talking points for adviser demo
+- Explain role-based UX: different dashboards and protected routes.
+- Show student registration with `SystemID` assignment and parent flows (ID-based registration/login).
+- Demonstrate attendance: enrollment -> group-photo attendance -> matched results -> persisted Attendance records and confidence values.
+- Demonstrate pose evaluation: upload template, analyze student media, show `StanceEvaluation` with analysis_details and scoring.
+- Highlight analytics and gamification: leaderboards, badges, belt readiness indicators.
+- Note ML caveats: pose/facial features are optional and require TF/MediaPipe; fallback strategies exist but accuracy varies.
+
+End of overview.
