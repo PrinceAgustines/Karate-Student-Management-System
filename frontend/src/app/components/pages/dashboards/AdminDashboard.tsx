@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { Users, Calendar, TrendingUp, Award, ArrowRight } from "lucide-react";
+import {
+  Users,
+  Calendar,
+  TrendingUp,
+  Award,
+  ArrowRight,
+  AlertCircle,
+  CheckCircle,
+  Target,
+} from "lucide-react";
 import { Button } from "../../ui/button";
+import { KPICard } from "../../ui/KPICard";
 import {
   LineChart,
   Line,
@@ -11,7 +21,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { fetchAnalyticsOverview, fetchStudents, fetchSessions } from "../../../api";
 
@@ -87,305 +101,329 @@ export function AdminDashboard() {
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
   useEffect(() => {
-    fetchStudents().then(setStudents).catch(() => setStudents([]));
-    fetchSessions().then(setSessions).catch(() => setSessions([]));
-    fetchAnalyticsOverview()
-      .then((data) => setAnalytics(data))
-      .catch(() => setAnalytics(null))
-      .finally(() => setAnalyticsLoading(false));
+    Promise.all([
+      fetchStudents().catch(() => []),
+      fetchSessions().catch(() => []),
+      fetchAnalyticsOverview().catch(() => null),
+    ]).then(([studentsData, sessionsData, analyticsData]) => {
+      setStudents(studentsData);
+      setSessions(sessionsData);
+      setAnalytics(analyticsData);
+      setAnalyticsLoading(false);
+    });
   }, []);
 
-  const statsData = useMemo(() => {
+  // Core KPIs
+  const primaryKPIs = useMemo(() => {
     const totalStudents = analytics?.descriptive.total_students ?? students.length;
-    const sessionsThisWeek = sessions.filter((session) => {
-      const today = new Date();
-      const sessionDate = new Date(`${session.date}T00:00:00`);
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - today.getDay());
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      return sessionDate >= weekStart && sessionDate <= weekEnd;
-    }).length;
-    const activeInstructors = students.filter((student) => student.role === "Instructor").length;
-    const avgAttendance = analytics?.descriptive.avg_session_attendance ?? 0;
+    const activeInstructors = students.filter((s) => s.role === "Instructor").length;
+    const overallPerformance = analytics?.descriptive.overall_average_score ?? 0;
+    const promotionReady = analytics?.descriptive.promotion_ready_count ?? 0;
 
     return [
-      { label: "Total Students", value: `${totalStudents}`, change: "", icon: Users, color: "text-blue-600" },
-      { label: "Active Instructors", value: `${activeInstructors}`, change: "", icon: Award, color: "text-purple-600" },
-      { label: "Sessions This Week", value: `${sessionsThisWeek}`, change: "", icon: Calendar, color: "text-green-600" },
-      { label: "Avg Attendance", value: avgAttendance ? `${avgAttendance}%` : "N/A", change: "", icon: TrendingUp, color: "text-red-600" },
+      {
+        title: "Total Students",
+        value: totalStudents,
+        color: "blue" as const,
+        icon: Users,
+        description: "Active students enrolled",
+      },
+      {
+        title: "Active Instructors",
+        value: activeInstructors,
+        color: "purple" as const,
+        icon: Award,
+        description: "Instructors available",
+      },
+      {
+        title: "Overall Performance",
+        value: overallPerformance.toFixed(1),
+        unit: "%",
+        color: "green" as const,
+        icon: TrendingUp,
+        description: "Average score across all metrics",
+      },
+      {
+        title: "Ready for Promotion",
+        value: promotionReady,
+        color: "orange" as const,
+        icon: Target,
+        description: "Students ready for next belt",
+      },
     ];
-  }, [analytics, students, sessions]);
+  }, [analytics, students]);
+
+  // Secondary KPIs
+  const secondaryKPIs = useMemo(() => {
+    const totalSessions = analytics?.descriptive.total_sessions ?? sessions.length;
+    const avgAttendance = analytics?.descriptive.avg_session_attendance ?? 0;
+    const lowAttendanceSessions =
+      analytics?.diagnostic.find((d) => d.title === "Low Attendance Sessions")?.value || "0";
+    const underperformingStudents =
+      analytics?.diagnostic.find((d) => d.title === "Underperforming Students")?.value || "0";
+
+    return [
+      {
+        title: "Sessions Scheduled",
+        value: totalSessions,
+        color: "blue" as const,
+        icon: Calendar,
+      },
+      {
+        title: "Avg Attendance Rate",
+        value: avgAttendance.toFixed(1),
+        unit: "%",
+        color: "green" as const,
+        icon: TrendingUp,
+      },
+      {
+        title: "Low Attendance Sessions",
+        value: lowAttendanceSessions,
+        color: "red" as const,
+        icon: AlertCircle,
+      },
+      {
+        title: "Underperforming Students",
+        value: underperformingStudents,
+        color: "red" as const,
+        icon: AlertCircle,
+      },
+    ];
+  }, [analytics, sessions]);
 
   const attendanceData = useMemo(() => {
     if (analytics?.attendance_trend?.length) {
       return analytics.attendance_trend;
     }
-    const grouped: Record<string, number> = {};
-    sessions.forEach((session) => {
-      const label = getWeekLabel(session.date);
-      grouped[label] = (grouped[label] ?? 0) + 1;
-    });
-    return Object.entries(grouped)
-      .sort(([a], [b]) => (a > b ? 1 : -1))
-      .slice(-4)
-      .map(([week, attendance]) => ({ week, attendance }));
-  }, [analytics, sessions]);
+    return [];
+  }, [analytics]);
+
+  const performanceData = useMemo(() => {
+    if (analytics?.performance_trend?.length) {
+      return analytics.performance_trend;
+    }
+    return [];
+  }, [analytics]);
 
   const beltDistribution = useMemo(() => {
     if (analytics?.belt_distribution?.length) {
       return analytics.belt_distribution;
     }
-    const counts: Record<string, number> = {};
-    students.forEach((student) => {
-      const belt = student.current_belt_rank || "Unknown";
-      counts[belt] = (counts[belt] ?? 0) + 1;
-    });
-    return Object.entries(counts).map(([belt, count]) => ({ belt, count }));
-  }, [analytics, students]);
+    return [];
+  }, [analytics]);
 
-  const recentStudentSnapshots = useMemo(() => {
-    return students.slice(0, 4);
-  }, [students]);
+  const COLORS = [
+    "#3b82f6",
+    "#10b981",
+    "#f59e0b",
+    "#ef4444",
+    "#8b5cf6",
+    "#ec4899",
+  ];
 
-  const recentSessions = useMemo(() => {
-    return [...sessions]
-      .sort((a, b) => new Date(`${b.date}T00:00:00`).getTime() - new Date(`${a.date}T00:00:00`).getTime())
-      .slice(0, 3)
-      .map((session) => ({
-        id: session.session_id,
-        name: session.session_type || "Session",
-        instructor: formatInstructor(session.instructor),
-        date: session.date,
-        time: `${session.start_time} - ${session.end_time}`,
-        attendance: 0,
-      }));
-  }, [sessions]);
+  const recommendations = analytics?.prescriptive ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-8">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
-        <p className="text-sm text-neutral-500">Overview of all operations</p>
+        <h1 className="text-3xl font-bold text-neutral-900">Dashboard</h1>
+        <p className="text-sm text-neutral-500 mt-1">
+          System overview & key performance indicators
+        </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Link to="/dashboard/students" className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-300">
-          <div className="text-sm font-medium text-neutral-500">Manage</div>
-          <div className="mt-2 text-lg font-semibold">Students</div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link
+          to="/dashboard/students"
+          className="flex items-center justify-between p-3 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 transition"
+        >
+          <div>
+            <div className="text-xs text-neutral-500 font-medium">Manage</div>
+            <div className="text-sm font-semibold text-neutral-900">Students</div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-neutral-400" />
         </Link>
-        <Link to="/dashboard/attendance/tracker" className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-300">
-          <div className="text-sm font-medium text-neutral-500">Track</div>
-          <div className="mt-2 text-lg font-semibold">Attendance</div>
+        <Link
+          to="/dashboard/attendance/tracker"
+          className="flex items-center justify-between p-3 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 transition"
+        >
+          <div>
+            <div className="text-xs text-neutral-500 font-medium">Track</div>
+            <div className="text-sm font-semibold text-neutral-900">Attendance</div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-neutral-400" />
         </Link>
-        <Link to="/dashboard/schedule" className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-300">
-          <div className="text-sm font-medium text-neutral-500">Plan</div>
-          <div className="mt-2 text-lg font-semibold">Sessions</div>
+        <Link
+          to="/dashboard/schedule"
+          className="flex items-center justify-between p-3 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 transition"
+        >
+          <div>
+            <div className="text-xs text-neutral-500 font-medium">Plan</div>
+            <div className="text-sm font-semibold text-neutral-900">Sessions</div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-neutral-400" />
         </Link>
-        <Link to="/dashboard/shop" className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-300">
-          <div className="text-sm font-medium text-neutral-500">Shop</div>
-          <div className="mt-2 text-lg font-semibold">Inventory & Orders</div>
+        <Link
+          to="/dashboard/shop"
+          className="flex items-center justify-between p-3 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 transition"
+        >
+          <div>
+            <div className="text-xs text-neutral-500 font-medium">Shop</div>
+            <div className="text-sm font-semibold text-neutral-900">Inventory</div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-neutral-400" />
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statsData.map((stat) => (
-          <div key={stat.label} className="bg-white border border-neutral-200 rounded-lg p-4">
-            <div className="flex items-start justify-between mb-3">
-              <div className={`p-2 rounded-lg bg-neutral-50 ${stat.color}`}>
-                <stat.icon className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="text-2xl font-semibold mb-1">{stat.value}</div>
-            <div className="text-xs text-neutral-500">{stat.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-neutral-200 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-semibold">Attendance Trend</h2>
-              <p className="text-xs text-neutral-500">Last 4 weeks</p>
-            </div>
-            <Link to="/dashboard/analytics/attendance">
-              <Button variant="ghost" size="sm">
-                View All <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </Link>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={attendanceData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-              <XAxis dataKey="week" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Line type="monotone" dataKey="attendance" stroke="#dc2626" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white border border-neutral-200 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-semibold">Belt Distribution</h2>
-              <p className="text-xs text-neutral-500">Current student ranks</p>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={beltDistribution}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-              <XAxis dataKey="belt" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Bar dataKey="count" fill="#dc2626" />
-            </BarChart>
-          </ResponsiveContainer>
+      {/* Primary KPIs */}
+      <div>
+        <h2 className="text-lg font-semibold text-neutral-900 mb-4">Core Metrics</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {primaryKPIs.map((kpi) => (
+            <KPICard
+              key={kpi.title}
+              title={kpi.title}
+              value={kpi.value}
+              unit={kpi.unit}
+              icon={kpi.icon}
+              color={kpi.color}
+              size="lg"
+              description={kpi.description}
+            />
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 bg-white border border-neutral-200 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-semibold">Diagnostic & Predictive Analytics</h2>
-              <p className="text-xs text-neutral-500">What the data tells you and how to act.</p>
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Attendance Trend */}
+        <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-lg p-6">
+          <div className="mb-4">
+            <h3 className="font-semibold text-neutral-900">Attendance Trend</h3>
+            <p className="text-xs text-neutral-500">Last 6 weeks</p>
+          </div>
+          {attendanceData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={attendanceData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+                <XAxis dataKey="week" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="attendance"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  dot={{ fill: "#3b82f6", r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-sm text-neutral-500">
+              No data available
             </div>
-            <Link to="/dashboard/analytics/reports">
-              <Button variant="ghost" size="sm">
-                Review Reports <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(analytics?.diagnostic ?? []).map((metric) => (
-              <div key={metric.title} className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-                <div className="text-xs text-neutral-500 uppercase tracking-wide">{metric.title}</div>
-                <div className="mt-2 text-2xl font-semibold">{metric.value}</div>
-                <p className="mt-2 text-xs text-neutral-500">{metric.detail}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(analytics?.predictive ?? []).map((metric) => (
-              <div key={metric.title} className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-xs text-neutral-500 uppercase tracking-wide">{metric.title}</div>
-                    <div className="mt-2 text-xl font-semibold">{metric.value}</div>
-                  </div>
-                </div>
-                <p className="mt-3 text-sm text-neutral-600">{metric.detail}</p>
-              </div>
-            ))}
-          </div>
+          )}
         </div>
 
+        {/* Belt Distribution */}
         <div className="bg-white border border-neutral-200 rounded-lg p-6">
           <div className="mb-4">
-            <h2 className="font-semibold">Prescriptive Actions</h2>
-            <p className="text-xs text-neutral-500">Recommended next steps from analytics.</p>
+            <h3 className="font-semibold text-neutral-900">Belt Distribution</h3>
+            <p className="text-xs text-neutral-500">Current ranks</p>
           </div>
-          {analyticsLoading ? (
-            <div className="text-sm text-neutral-500">Loading recommendations...</div>
-          ) : analytics?.prescriptive?.length ? (
-            <ul className="space-y-3">
-              {analytics.prescriptive.map((item, index) => (
-                <li key={index} className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
-                  {item}
-                </li>
-              ))}
-            </ul>
+          {beltDistribution.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={beltDistribution}
+                  dataKey="count"
+                  nameKey="belt"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  label={{ fontSize: 12 }}
+                >
+                  {beltDistribution.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
           ) : (
-            <div className="text-sm text-neutral-500">No recommendations currently available.</div>
+            <div className="h-64 flex items-center justify-center text-sm text-neutral-500">
+              No data available
+            </div>
           )}
         </div>
       </div>
 
-      <div className="bg-white border border-neutral-200 rounded-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="font-semibold">Recent Students</h2>
-            <p className="text-xs text-neutral-500">Latest registered or active students</p>
-          </div>
-          <Link to="/dashboard/students">
-            <Button variant="ghost" size="sm">
-              View All <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          </Link>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-neutral-50 border-b border-neutral-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Belt</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {recentStudentSnapshots.map((student, index) => (
-                <tr key={`${student.student_id}-${index}`} className="hover:bg-neutral-50">
-                  <td className="px-6 py-4 text-sm font-medium">{`${student.first_name} ${student.last_name}`}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-600">{student.role || "Student"}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700">
-                      {student.current_belt_rank || "White"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {recentStudentSnapshots.length === 0 && (
-                <tr>
-                  <td className="px-6 py-4 text-sm text-neutral-500" colSpan={3}>
-                    No students found yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {/* Secondary KPIs */}
+      <div>
+        <h2 className="text-lg font-semibold text-neutral-900 mb-4">
+          Diagnostic Metrics
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {secondaryKPIs.map((kpi) => (
+            <KPICard
+              key={kpi.title}
+              title={kpi.title}
+              value={kpi.value}
+              unit={kpi.unit}
+              icon={kpi.icon}
+              color={kpi.color}
+              size="md"
+            />
+          ))}
         </div>
       </div>
 
-      <div className="bg-white border border-neutral-200 rounded-lg">
-        <div className="p-6 border-b border-neutral-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold">Recent Sessions</h2>
-              <p className="text-xs text-neutral-500">Latest training sessions</p>
-            </div>
-            <Link to="/dashboard/schedule">
-              <Button variant="ghost" size="sm">
-                Manage Sessions <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </Link>
+      {/* Performance Trend */}
+      {performanceData.length > 0 && (
+        <div className="bg-white border border-neutral-200 rounded-lg p-6">
+          <div className="mb-4">
+            <h3 className="font-semibold text-neutral-900">Performance Trend</h3>
+            <p className="text-xs text-neutral-500">Overall average over time</p>
           </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={performanceData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+              <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Bar dataKey="overall_average" fill="#10b981" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-neutral-50 border-b border-neutral-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Session</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Instructor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Attendance</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {recentSessions.map((session) => (
-                <tr key={session.id} className="hover:bg-neutral-50">
-                  <td className="px-6 py-4 text-sm">{session.name}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-600">{session.instructor}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-600">{session.date}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-600">{session.time}</td>
-                  <td className="px-6 py-4 text-sm font-medium">{session.attendance}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      )}
+
+      {/* Recommendations */}
+      {!analyticsLoading && recommendations.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="flex items-start gap-3 mb-4">
+            <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-neutral-900">
+                Recommended Actions
+              </h3>
+              <p className="text-xs text-neutral-600">
+                Based on current data analysis
+              </p>
+            </div>
+          </div>
+          <ul className="space-y-2">
+            {recommendations.map((rec, idx) => (
+              <li key={idx} className="text-sm text-neutral-700 flex gap-2">
+                <span className="text-blue-600 font-bold flex-shrink-0">•</span>
+                <span>{rec}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      )}
     </div>
   );
 }

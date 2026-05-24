@@ -358,6 +358,50 @@ export async function fetchPerformanceSummaries(params?: { student_id?: number; 
   return handleResponse(response);
 }
 
+export async function fetchPoseAnalytics(studentId: number) {
+  const response = await fetch(
+    `${API_BASE}/api/students/stance-evaluations/student-analytics/?student_id=${studentId}`,
+    {
+      method: "GET",
+      headers: buildHeaders(true),
+    }
+  );
+  return handleResponse(response);
+}
+
+export async function fetchPoseTrend(studentId: number, days: number = 30) {
+  const response = await fetch(
+    `${API_BASE}/api/students/stance-evaluations/trend/?student_id=${studentId}&days=${days}`,
+    {
+      method: "GET",
+      headers: buildHeaders(true),
+    }
+  );
+  return handleResponse(response);
+}
+
+export async function fetchPoseProjection(studentId: number) {
+  const response = await fetch(
+    `${API_BASE}/api/students/stance-evaluations/projection/?student_id=${studentId}`,
+    {
+      method: "GET",
+      headers: buildHeaders(true),
+    }
+  );
+  return handleResponse(response);
+}
+
+export async function fetchPoseInsights(studentId: number) {
+  const response = await fetch(
+    `${API_BASE}/api/students/stance-evaluations/insights/?student_id=${studentId}`,
+    {
+      method: "GET",
+      headers: buildHeaders(true),
+    }
+  );
+  return handleResponse(response);
+}
+
 export async function fetchBeltProgressionIndicators(params?: { student_id?: number; readiness_status?: string }) {
   const query = buildQueryString(params);
   const response = await fetch(`${API_BASE}/api/students/belt-progression-indicators/${query}`, {

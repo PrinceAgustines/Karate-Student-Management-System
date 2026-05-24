@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { RootLayout } from "./components/layouts/RootLayout";
 import { AuthLayout } from "./components/layouts/AuthLayout";
 import { DashboardLayout } from "./components/layouts/DashboardLayout";
@@ -62,6 +62,7 @@ export const router = createBrowserRouter([
         path: "auth",
         Component: AuthLayout,
         children: [
+          { index: true, Component: LoginPage },
           { path: "login", Component: LoginPage },
           { path: "register-parent", Component: RegisterParentPage },
           { path: "register-student", Component: RegisterStudentPage },
@@ -101,7 +102,7 @@ export const router = createBrowserRouter([
           { path: "notifications", Component: () => <RoleGuard allowedRoles={["admin", "instructor", "student", "parent"]}><NotificationsPage /></RoleGuard> },
         ],
       },
-      { index: true, Component: LoginPage },
+      { index: true, Component: () => <Navigate to="/auth/login" replace /> },
     ],
   },
 ]);

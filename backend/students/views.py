@@ -70,6 +70,7 @@ from .services.performance_services import (
 )
 from .facial_recognition import FacialRecognitionService
 from .pose_evaluation import PoseEvaluationService
+from .pose_evaluation.analytics import PoseAnalyticsService
 
 
 class IsAuthenticatedInventoryManager(permissions.BasePermission):
@@ -633,6 +634,68 @@ class StanceEvaluationViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(evaluation)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], url_path='student-analytics')
+    def student_analytics(self, request):
+        """Get analytics for a specific student."""
+        student_id = request.query_params.get('student_id')
+        if not student_id:
+            return Response({'detail': 'student_id query parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            student = Student.objects.get(student_id=student_id)
+        except Student.DoesNotExist:
+            return Response({'detail': 'Student not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        analytics = PoseAnalyticsService.get_student_analytics_summary(student)
+        return Response(analytics, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='trend')
+    def trend(self, request):
+        """Get accuracy trend for a student."""
+        student_id = request.query_params.get('student_id')
+        days = int(request.query_params.get('days', 30))
+        
+        if not student_id:
+            return Response({'detail': 'student_id query parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            student = Student.objects.get(student_id=student_id)
+        except Student.DoesNotExist:
+            return Response({'detail': 'Student not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        trend_data = PoseAnalyticsService.calculate_accuracy_trend(student, days)
+        return Response(trend_data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='projection')
+    def projection(self, request):
+        """Get accuracy projection for a student."""
+        student_id = request.query_params.get('student_id')
+        if not student_id:
+            return Response({'detail': 'student_id query parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            student = Student.objects.get(student_id=student_id)
+        except Student.DoesNotExist:
+            return Response({'detail': 'Student not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        projection = PoseAnalyticsService.project_accuracy(student)
+        return Response(projection, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='insights')
+    def insights(self, request):
+        """Get actionable insights for a student."""
+        student_id = request.query_params.get('student_id')
+        if not student_id:
+            return Response({'detail': 'student_id query parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            student = Student.objects.get(student_id=student_id)
+        except Student.DoesNotExist:
+            return Response({'detail': 'Student not found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        insights = PoseAnalyticsService.generate_insights(student)
+        return Response({'insights': insights}, status=status.HTTP_200_OK)
 
 
 class PoseTemplateViewSet(viewsets.ModelViewSet):
