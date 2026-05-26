@@ -84,6 +84,22 @@ class IsAuthenticatedInventoryManager(permissions.BasePermission):
         return getattr(request.user, "role", None) in {"admin", "instructor"}
 
 
+class IsAdminOrInstructor(permissions.BasePermission):
+    """Permission class to allow only authenticated admins/instructors to create/update/delete."""
+    
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Allow reading for all authenticated users
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        # Only allow create/update/delete for admins and instructors
+        user_role = getattr(request.user, "role", None)
+        return user_role in {"admin", "instructor", "Admin", "Instructor"}
+
+
 class VerifySystemIDView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -583,7 +599,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 class StanceEvaluationViewSet(viewsets.ModelViewSet):
     queryset = StanceEvaluation.objects.all().order_by('-date_evaluated')
     serializer_class = StanceEvaluationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def __init__(self, *args, **kwargs):
@@ -742,145 +758,28 @@ class PoseTemplateViewSet(viewsets.ModelViewSet):
 class InstructorRatingViewSet(viewsets.ModelViewSet):
     queryset = InstructorRating.objects.all()
     serializer_class = InstructorRatingSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
 
-    def perform_create(self, serializer):
-        rating = serializer.save()
-        # Notify student
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grade_posted',
-            message=f'Your instructor rating has been posted',
-            date_sent=timezone.now().date(),
-            recipient=rating.student.contacts.first().email_address if rating.student.contacts.exists() else 'student',
-        )
-        # Notify parents
-        parents = ParentStudent.objects.filter(student=rating.student).values_list('parent', flat=True)
-        for parent_id in parents:
-            try:
-                parent_user = User.objects.get(id=parent_id)
-                Notification.objects.create(
-                    student=rating.student,
-                    notification_type='child_grading_available',
-                    message=f'New grading results available for your child',
-                    date_sent=timezone.now().date(),
-                    recipient=parent_user.email or 'parent',
-                )
-            except:
-                pass
-        # Admin notification
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grading_submitted',
-            message=f'New grading submitted for {rating.student.first_name} {rating.student.last_name} by {rating.instructor.first_name} {rating.instructor.last_name}',
-            date_sent=timezone.now().date(),
-            recipient='admin@instructor',
-        )
-
-    def perform_update(self, serializer):
-        rating = serializer.save()
-        # Notify student
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grade_posted',
-            message=f'Your instructor rating has been updated',
-            date_sent=timezone.now().date(),
-            recipient=rating.student.contacts.first().email_address if rating.student.contacts.exists() else 'student',
-        )
-        # Notify parents
-        parents = ParentStudent.objects.filter(student=rating.student).values_list('parent', flat=True)
-        for parent_id in parents:
-            try:
-                parent_user = User.objects.get(id=parent_id)
-                Notification.objects.create(
-                    student=rating.student,
-                    notification_type='child_grading_available',
-                    message=f'Updated grading results available for your child',
-                    date_sent=timezone.now().date(),
-                    recipient=parent_user.email or 'parent',
-                )
-            except:
-                pass
-        # Admin notification
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grade_updated',
-            message=f'Grade updated successfully for {rating.student.first_name} {rating.student.last_name}',
-            date_sent=timezone.now().date(),
-            recipient='admin@instructor',
-        )
+    def get_queryset(self):
+        queryset = super().get_queryset().order_by('-date_evaluated')
+        student_id = self.request.query_params.get('student_id')
+        if student_id:
+            queryset = queryset.filter(student__student_id=student_id)
+        
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        if date_from and date_to:
+            queryset = queryset.filter(date_evaluated__range=(date_from, date_to))
+        
+        return queryset
 
 
 class KataRatingViewSet(viewsets.ModelViewSet):
     queryset = KataRating.objects.all().order_by('-date_recorded')
     serializer_class = KataRatingSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
 
-    def perform_create(self, serializer):
-        rating = serializer.save()
-        # Notify student
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grade_posted',
-            message=f'Your kata grade has been posted: {rating.combined_kata_score}',
-            date_sent=timezone.now().date(),
-            recipient=rating.student.contacts.first().email_address if rating.student.contacts.exists() else 'student',
-        )
-        # Notify parents
-        parents = ParentStudent.objects.filter(student=rating.student).values_list('parent', flat=True)
-        for parent_id in parents:
-            try:
-                parent_user = User.objects.get(id=parent_id)
-                Notification.objects.create(
-                    student=rating.student,
-                    notification_type='child_grading_available',
-                    message=f'New grading results available for your child (Kata)',
-                    date_sent=timezone.now().date(),
-                    recipient=parent_user.email or 'parent',
-                )
-            except:
-                pass
-        # Admin notification
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grading_submitted',
-            message=f'Kata grading submitted for {rating.student.first_name} {rating.student.last_name}',
-            date_sent=timezone.now().date(),
-            recipient='admin@instructor',
-        )
 
-    def perform_update(self, serializer):
-        rating = serializer.save()
-        # Notify student
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grade_posted',
-            message=f'Your kata grade has been updated: {rating.combined_kata_score}',
-            date_sent=timezone.now().date(),
-            recipient=rating.student.contacts.first().email_address if rating.student.contacts.exists() else 'student',
-        )
-        # Notify parents
-        parents = ParentStudent.objects.filter(student=rating.student).values_list('parent', flat=True)
-        for parent_id in parents:
-            try:
-                parent_user = User.objects.get(id=parent_id)
-                Notification.objects.create(
-                    student=rating.student,
-                    notification_type='child_grading_available',
-                    message=f'Updated grading results available for your child (Kata)',
-                    date_sent=timezone.now().date(),
-                    recipient=parent_user.email or 'parent',
-                )
-            except:
-                pass
-        # Admin notification
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grade_updated',
-            message=f'Kata grade updated for {rating.student.first_name} {rating.student.last_name}',
-            date_sent=timezone.now().date(),
-            recipient='admin@instructor',
-        )
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -916,73 +815,9 @@ class KataRatingViewSet(viewsets.ModelViewSet):
 class KumiteRatingViewSet(viewsets.ModelViewSet):
     queryset = KumiteRating.objects.all().order_by('-date_recorded')
     serializer_class = KumiteRatingSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
 
-    def perform_create(self, serializer):
-        rating = serializer.save()
-        # Notify student
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grade_posted',
-            message=f'Your kumite grade has been posted: {rating.combined_kumite_score}',
-            date_sent=timezone.now().date(),
-            recipient=rating.student.contacts.first().email_address if rating.student.contacts.exists() else 'student',
-        )
-        # Notify parents
-        parents = ParentStudent.objects.filter(student=rating.student).values_list('parent', flat=True)
-        for parent_id in parents:
-            try:
-                parent_user = User.objects.get(id=parent_id)
-                Notification.objects.create(
-                    student=rating.student,
-                    notification_type='child_grading_available',
-                    message=f'New grading results available for your child (Kumite)',
-                    date_sent=timezone.now().date(),
-                    recipient=parent_user.email or 'parent',
-                )
-            except:
-                pass
-        # Admin notification
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grading_submitted',
-            message=f'Kumite grading submitted for {rating.student.first_name} {rating.student.last_name}',
-            date_sent=timezone.now().date(),
-            recipient='admin@instructor',
-        )
 
-    def perform_update(self, serializer):
-        rating = serializer.save()
-        # Notify student
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grade_posted',
-            message=f'Your kumite grade has been updated: {rating.combined_kumite_score}',
-            date_sent=timezone.now().date(),
-            recipient=rating.student.contacts.first().email_address if rating.student.contacts.exists() else 'student',
-        )
-        # Notify parents
-        parents = ParentStudent.objects.filter(student=rating.student).values_list('parent', flat=True)
-        for parent_id in parents:
-            try:
-                parent_user = User.objects.get(id=parent_id)
-                Notification.objects.create(
-                    student=rating.student,
-                    notification_type='child_grading_available',
-                    message=f'Updated grading results available for your child (Kumite)',
-                    date_sent=timezone.now().date(),
-                    recipient=parent_user.email or 'parent',
-                )
-            except:
-                pass
-        # Admin notification
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grade_updated',
-            message=f'Kumite grade updated for {rating.student.first_name} {rating.student.last_name}',
-            date_sent=timezone.now().date(),
-            recipient='admin@instructor',
-        )
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -1014,7 +849,7 @@ class KumiteRatingViewSet(viewsets.ModelViewSet):
 class PerformanceSummaryViewSet(viewsets.ModelViewSet):
     queryset = PerformanceSummary.objects.all().order_by('-generated_at')
     serializer_class = PerformanceSummarySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -1065,7 +900,7 @@ class PerformanceSummaryViewSet(viewsets.ModelViewSet):
 class BeltProgressionIndicatorViewSet(viewsets.ModelViewSet):
     queryset = BeltProgressionIndicator.objects.all().order_by('-last_assessment_date')
     serializer_class = BeltProgressionIndicatorSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
 
     def perform_update(self, serializer):
         old_status = self.get_object().readiness_status
@@ -1154,7 +989,7 @@ class BeltProgressionIndicatorViewSet(viewsets.ModelViewSet):
 class ProgressionInsightViewSet(viewsets.ModelViewSet):
     queryset = ProgressionInsight.objects.all().order_by('-generated_at')
     serializer_class = ProgressionInsightSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -1307,14 +1142,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return Response({'detail': 'Notifications marked as read.'}, status=status.HTTP_200_OK)
 
     def perform_update(self, serializer):
-        rating = serializer.save()
-        Notification.objects.create(
-            student=rating.student,
-            notification_type='grade_updated',
-            message=f'Grade updated successfully for {rating.student.first_name} {rating.student.last_name}',
-            date_sent=timezone.now().date(),
-            recipient='admin@instructor',
-        )
+        serializer.save()
 
 
 class ParentStudentViewSet(viewsets.ModelViewSet):

@@ -3,7 +3,9 @@ import { Trophy, Target, Flame, Star, Medal } from "lucide-react";
 import { Progress } from "../../ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { useAuth } from "../../../auth";
-import { fetchGamificationBadgeStudents, fetchGamificationBadgeSummaries, fetchGamificationLeaderboard, fetchMe, fetchStudentPerformanceDashboard, fetchStudents } from "../../../api";
+import { fetchGamificationBadgeStudents, fetchGamificationBadgeSummaries, fetchGamificationLeaderboard, fetchMe, fetchStudentPerformanceDashboard, fetchStudents, fetchBeltProgressionIndicators } from "../../../api";
+import { BeltProgressionDisplay } from "../../gamification/BeltProgression";
+import { BeltReadinessMetrics } from "../../gamification/BeltReadinessMetrics";
 
 type StudentRecord = {
   student_id: number;
@@ -109,6 +111,7 @@ export function GamificationDashboard() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [currentStudent, setCurrentStudent] = useState<StudentRecord | null>(null);
   const [gamification, setGamification] = useState<GamificationPayload | null>(null);
+  const [beltProgression, setBeltProgression] = useState<any>(null);
   const [badgeSummaries, setBadgeSummaries] = useState<BadgeSummary[]>([]);
   const [selectedBadge, setSelectedBadge] = useState<BadgeSummary | null>(null);
   const [badgeStudents, setBadgeStudents] = useState<BadgeStudentItem[]>([]);
@@ -158,6 +161,10 @@ export function GamificationDashboard() {
             const dashboard = await fetchStudentPerformanceDashboard(me.student_id);
             setGamification(dashboard.gamification ?? null);
             setCurrentStudent(dashboard.student ?? null);
+            
+            // Fetch belt progression data
+            const beltProgData = await fetchBeltProgressionIndicators({ student_id: me.student_id });
+            setBeltProgression(Array.isArray(beltProgData) ? beltProgData[0] : beltProgData);
           }
         }
 
@@ -168,6 +175,10 @@ export function GamificationDashboard() {
             const dashboard = await fetchStudentPerformanceDashboard(studentId);
             setGamification(dashboard.gamification ?? null);
             setCurrentStudent(dashboard.student ?? null);
+            
+            // Fetch belt progression data
+            const beltProgData = await fetchBeltProgressionIndicators({ student_id: studentId });
+            setBeltProgression(Array.isArray(beltProgData) ? beltProgData[0] : beltProgData);
           }
         }
       } catch (error) {
@@ -265,6 +276,34 @@ export function GamificationDashboard() {
               {xpNext - xpCurrent} XP to Level {xpLevel + 1}
             </div>
           </div>
+
+          {/* Belt Progression Section */}
+          {currentStudent && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <BeltProgressionDisplay
+                currentBelt={currentStudent.current_belt_rank || "White Belt"}
+                targetBelt={beltProgression?.target_belt}
+                overallReadinessPercentage={beltProgression?.overall_readiness_percentage || 0}
+                showFullProgression={true}
+              />
+              {beltProgression && (
+                <BeltReadinessMetrics
+                  kataReadiness={beltProgression.kata_readiness}
+                  kumiteReadiness={beltProgression.kumite_readiness}
+                  disciplineReadiness={beltProgression.discipline_readiness}
+                  attendanceReadiness={beltProgression.attendance_readiness}
+                  overallReadiness={beltProgression.overall_readiness_percentage}
+                  readinessStatus={beltProgression.readiness_status}
+                  requirements={{
+                    kata: beltProgression.kata_requirement,
+                    kumite: beltProgression.kumite_requirement,
+                    discipline: beltProgression.discipline_requirement,
+                    attendance: beltProgression.attendance_requirement,
+                  }}
+                />
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-white border border-neutral-200 rounded-lg p-4">

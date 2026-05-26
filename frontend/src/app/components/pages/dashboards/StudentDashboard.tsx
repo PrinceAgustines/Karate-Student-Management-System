@@ -360,338 +360,339 @@ export function StudentDashboard() {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-3xl font-semibold">
-            {childStudentId ? `${student?.first_name} ${student?.last_name}'s Dashboard` : "My Dashboard"}
+            {childStudentId ? `${student?.first_name}'s Progress` : "Your Karate Journey"}
           </h1>
           <p className="text-sm text-neutral-500 mt-1">
-            {childStudentId ? "Monitor your child's karate progression, performance, and promotion readiness." : "Track your karate progression, performance, and promotion readiness."}
+            {childStudentId ? "See your child's training progress, skills, and what they're working on." : "See your training progress, skills, and what you're working on."}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <Link to={childStudentId ? `/dashboard/students/${childStudentId}` : "/dashboard/profile"}>
-            <Button variant="outline">View Profile</Button>
+            <Button variant="outline">
+              👤 {childStudentId ? "View Profile" : "My Profile"}
+            </Button>
           </Link>
           <Button variant="default" disabled>
             <Zap className="h-4 w-4 mr-2" />
-            Real-Time Insights
+            Live Stats
           </Button>
         </div>
       </div>
 
+      {/* Quick Overview - What matters most */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {statsData.map((stat) => (
-          <div key={stat.label} className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm">
-            <div className={`inline-flex items-center justify-center h-11 w-11 rounded-2xl bg-neutral-50 ${stat.color}`}>
+          <div key={stat.label} className="bg-gradient-to-br from-white to-neutral-50 border border-neutral-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition">
+            <div className={`inline-flex items-center justify-center h-11 w-11 rounded-2xl bg-neutral-100 ${stat.color}`}>
               <stat.icon className="h-5 w-5" />
             </div>
-            <div className="mt-4 text-3xl font-semibold">{stat.value}</div>
-            <div className="mt-2 text-sm text-neutral-500">{stat.label}</div>
+            <div className="mt-4 text-3xl font-bold text-neutral-900">{stat.value}</div>
+            <div className="mt-2 text-sm text-neutral-600 font-medium">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-xl font-semibold">Performance Insights</h2>
-              <p className="text-sm text-neutral-500">Detailed ratings for kata, kumite, and discipline.</p>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-600">
-              {student?.current_belt_rank || "Belt"} Belt
-            </div>
+      {/* Path to Next Belt Section - Most Important */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-neutral-900">📈 Your Path to {beltProgress.next} Belt</h2>
+            <p className="text-sm text-neutral-600 mt-1">Complete the requirements below to advance</p>
           </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-red-50 border border-red-100 p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-sm font-medium text-red-700">Kata Evaluation</p>
-                    <p className="text-xs text-neutral-500">Form, stance, and instructor feedback.</p>
-                  </div>
-                  <div className="text-3xl font-semibold text-red-700">{kataRating?.combined_kata_score?.toFixed(1) || "--"}</div>
-                </div>
-                <div className="space-y-3">
-                  <div className="rounded-2xl bg-white p-4 shadow-sm">
-                    <p className="text-xs text-neutral-500">Pose Evaluation</p>
-                    <p className="mt-1 text-2xl font-semibold text-red-600">{kataRating?.pose_evaluation_avg?.toFixed(1) || "--"}</p>
-                  </div>
-                  <div className="rounded-2xl bg-white p-4 shadow-sm">
-                    <p className="text-xs text-neutral-500">Instructor Score</p>
-                    <p className="mt-1 text-2xl font-semibold text-red-600">{kataRating?.instructor_kata_score?.toFixed(1) || "--"}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-blue-50 border border-blue-100 p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-sm font-medium text-blue-700">Kumite Evaluation</p>
-                    <p className="text-xs text-neutral-500">Matches, scoring, and instructor ratings.</p>
-                  </div>
-                  <div className="text-3xl font-semibold text-blue-700">{kumiteRating?.combined_kumite_score?.toFixed(1) || "--"}</div>
-                </div>
-                <div className="space-y-3">
-                  <div className="rounded-2xl bg-white p-4 shadow-sm">
-                    <p className="text-xs text-neutral-500">Match Average</p>
-                    <p className="mt-1 text-2xl font-semibold text-blue-600">{kumiteRating?.match_avg_score?.toFixed(1) || "--"}</p>
-                  </div>
-                  <div className="rounded-2xl bg-white p-4 shadow-sm">
-                    <p className="text-xs text-neutral-500">Record</p>
-                    <p className="mt-1 text-2xl font-semibold text-blue-600">{kumiteRating?.wins || 0}W - {kumiteRating?.losses || 0}L</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-white border border-neutral-200 p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-sm font-medium">Overall Performance</p>
-                    <p className="text-xs text-neutral-500">Your current average and trend.</p>
-                  </div>
-                  <div className="rounded-full bg-green-50 px-3 py-1 text-sm font-semibold text-green-700">{performanceSummary?.overall_trend != null && (performanceSummary.overall_trend >= 0 ? "+" : "") + performanceSummary.overall_trend.toFixed(1)}%</div>
-                </div>
-                <p className="text-4xl font-semibold text-green-700">{performanceSummary?.overall_average?.toFixed(1) || "--"}%</p>
-                <div className="mt-5 space-y-4">
-                  {performanceSummary && [
-                    { label: "Kata", value: performanceSummary.kata_average, trend: performanceSummary.kata_trend, color: "bg-red-500" },
-                    { label: "Kumite", value: performanceSummary.kumite_average, trend: performanceSummary.kumite_trend, color: "bg-blue-500" },
-                    { label: "Discipline", value: performanceSummary.discipline_average, trend: performanceSummary.discipline_trend, color: "bg-emerald-500" },
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <div className="flex items-center justify-between text-sm font-medium mb-1">
-                        <span>{item.label}</span>
-                        <span>{item.value.toFixed(1)}%</span>
-                      </div>
-                      <div className="w-full bg-neutral-100 rounded-full h-2.5 overflow-hidden">
-                        <div className={`${item.color} h-2.5 rounded-full`} style={{ width: `${Math.min(100, item.value)}%` }} />
-                      </div>
-                      <p className={`text-xs mt-1 ${item.trend >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {item.trend >= 0 ? "Up" : "Down"} {Math.abs(item.trend).toFixed(1)}%
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-neutral-50 border border-neutral-200 p-5 shadow-sm">
-                <p className="text-sm font-semibold text-neutral-900">Strength</p>
-                <p className="mt-2 text-lg font-semibold text-green-700">{performanceSummary?.strength_area || "N/A"}</p>
-                <p className="mt-1 text-sm text-neutral-600">Keep building on this area to maintain your momentum.</p>
-              </div>
-              <div className="rounded-2xl bg-neutral-50 border border-neutral-200 p-5 shadow-sm">
-                <p className="text-sm font-semibold text-neutral-900">Focus Area</p>
-                <p className="mt-2 text-lg font-semibold text-orange-700">{performanceSummary?.improvement_area || "N/A"}</p>
-                <p className="mt-1 text-sm text-neutral-600">Targets for improvement help you progress faster.</p>
-              </div>
-            </div>
+          <div className="text-right">
+            <p className="text-4xl font-bold text-indigo-600">{beltProgress.progress}%</p>
+            <p className="text-xs text-neutral-600 mt-1">Ready</p>
           </div>
         </div>
-
-        <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-xl font-semibold">Belt Readiness</h2>
-              <p className="text-sm text-neutral-500">Your promotion readiness by category.</p>
+        <div className="w-full bg-neutral-200 rounded-full h-3 mb-4 overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-500 to-blue-500 h-3 rounded-full transition-all" style={{ width: `${beltProgress.progress}%` }} />
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+          {beltProgress.requirements.map((req) => (
+            <div key={req.name} className="bg-white rounded-xl p-4 border border-neutral-200">
+              <div className="text-sm font-semibold text-neutral-700 mb-2">{req.name}</div>
+              <div className="text-2xl font-bold text-neutral-900 mb-1">{req.completed}/{req.total}</div>
+              <div className="w-full bg-neutral-100 rounded-full h-2 overflow-hidden">
+                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${Math.min(100, (req.completed / req.total) * 100)}%` }} />
+              </div>
+              <p className="text-xs text-neutral-500 mt-2">
+                {req.progress >= 100 ? "✅ Complete!" : `${Math.round(req.progress)}% done`}
+              </p>
             </div>
-            <div className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">
-              {beltProgression?.readiness_status?.replace("_", " ") || "Status"}
-            </div>
+          ))}
+        </div>
+        
+        {beltProgression?.estimated_promotion_date && (
+          <div className="mt-4 bg-white rounded-lg p-3 border border-indigo-200">
+            <p className="text-sm text-neutral-600">You could get promoted around <span className="font-bold text-indigo-600">{new Date(beltProgression.estimated_promotion_date).toLocaleDateString()}</span> if you keep training!</p>
           </div>
-
-          <div className="space-y-4">
-            {[
-              { label: "Kata", value: beltProgression?.kata_readiness ?? 0, target: beltProgression?.kata_requirement ?? 100, color: "bg-red-500" },
-              { label: "Kumite", value: beltProgression?.kumite_readiness ?? 0, target: beltProgression?.kumite_requirement ?? 100, color: "bg-blue-500" },
-              { label: "Discipline", value: beltProgression?.discipline_readiness ?? 0, target: beltProgression?.discipline_requirement ?? 100, color: "bg-emerald-500" },
-              { label: "Attendance", value: beltProgression?.attendance_readiness ?? 0, target: beltProgression?.attendance_requirement ?? 100, color: "bg-amber-500" },
-            ].map((item) => (
-              <div key={item.label} className="rounded-2xl bg-white border border-neutral-200 p-4">
-                <div className="flex items-center justify-between mb-2 text-sm font-medium">
-                  <span>{item.label}</span>
-                  <span>{item.value.toFixed(1)}% / {item.target.toFixed(1)}%</span>
+        )}
+      </div>
+      {/* Performance Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
+          <h2 className="text-2xl font-bold mb-4">⭐ Your Skills</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Kata Card */}
+            <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border border-red-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-bold text-neutral-900">Kata</h3>
+                  <p className="text-xs text-neutral-600">Forms & Techniques</p>
                 </div>
-                <div className="w-full bg-neutral-100 rounded-full h-2.5 overflow-hidden">
-                  <div className={`${item.color} h-2.5 rounded-full`} style={{ width: `${Math.min(100, (item.value / item.target) * 100)}%` }} />
+                <span className="text-3xl font-bold text-red-600">{kataRating?.combined_kata_score?.toFixed(0) || "--"}</span>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-neutral-700">Form quality: {kataRating?.pose_evaluation_avg?.toFixed(0) || "--"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-700">Instructor says: {kataRating?.instructor_kata_score?.toFixed(0) || "--"}</span>
                 </div>
               </div>
-            ))}
+            </div>
+
+            {/* Kumite Card */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-bold text-neutral-900">Kumite</h3>
+                  <p className="text-xs text-neutral-600">Sparring & Fighting</p>
+                </div>
+                <span className="text-3xl font-bold text-blue-600">{kumiteRating?.combined_kumite_score?.toFixed(0) || "--"}</span>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-neutral-700">Match score: {kumiteRating?.match_avg_score?.toFixed(0) || "--"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-neutral-700">Record: {kumiteRating?.wins || 0}W - {kumiteRating?.losses || 0}L</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {beltProgression?.estimated_promotion_date && (
-            <div className="mt-6 rounded-2xl bg-indigo-50 border border-indigo-100 p-4 text-sm text-indigo-700">
-              Estimated Promotion: <span className="font-semibold">{new Date(beltProgression.estimated_promotion_date).toLocaleDateString()}</span>
+          {/* Overall Progress */}
+          {performanceSummary && (
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 p-5">
+              <h3 className="font-bold text-neutral-900 mb-3">Your Overall Score</h3>
+              <div className="text-4xl font-bold text-green-600 mb-3">{performanceSummary.overall_average?.toFixed(0) || "--"}%</div>
+              
+              <div className="space-y-3">
+                {[
+                  { label: "Kata", value: performanceSummary.kata_average, color: "bg-red-500" },
+                  { label: "Kumite", value: performanceSummary.kumite_average, color: "bg-blue-500" },
+                  { label: "Discipline", value: performanceSummary.discipline_average, color: "bg-emerald-500" },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <div className="flex justify-between text-sm font-medium mb-1">
+                      <span className="text-neutral-700">{item.label}</span>
+                      <span className="font-bold text-neutral-900">{item.value.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-neutral-200 rounded-full h-2.5">
+                      <div className={`${item.color} h-2.5 rounded-full`} style={{ width: `${Math.min(100, item.value)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
+        </div>
+
+        {/* What to Focus On */}
+        <div className="space-y-4">
+          {performanceSummary && (
+            <>
+              <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl border border-green-200 p-5 shadow-sm">
+                <p className="text-sm font-semibold text-neutral-600 mb-2">💪 You're Great At</p>
+                <p className="text-lg font-bold text-green-700">{performanceSummary.strength_area || "Keep training!"}</p>
+                <p className="text-xs text-neutral-600 mt-2">Keep it up and show off this strength!</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl border border-amber-200 p-5 shadow-sm">
+                <p className="text-sm font-semibold text-neutral-600 mb-2">🎯 Work On This</p>
+                <p className="text-lg font-bold text-amber-700">{performanceSummary.improvement_area || "You're balanced!"}</p>
+                <p className="text-xs text-neutral-600 mt-2">Ask your instructor how to improve</p>
+              </div>
+            </>
           )}
 
           {beltProgression?.notes && (
-            <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 p-4 text-sm text-neutral-700">
-              <p className="font-medium">Instructor Notes</p>
-              <p className="mt-2">{beltProgression.notes}</p>
+            <div className="bg-blue-50 rounded-xl border border-blue-200 p-4 shadow-sm">
+              <p className="text-sm font-semibold text-neutral-700 mb-2">💬 Instructor's Note</p>
+              <p className="text-sm text-neutral-700">{beltProgression.notes}</p>
             </div>
           )}
         </div>
       </div>
 
+      {/* Badges & Rewards */}
       {gamification && (
-        <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-xl font-semibold">Gamification</h2>
-              <p className="text-sm text-neutral-500">Track XP, badges, and active challenges.</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-neutral-500">Level</p>
-              <p className="text-2xl font-semibold">{gamification.profile.level}</p>
+              <h2 className="text-2xl font-bold">🎮 Achievements & Rewards</h2>
+              <p className="text-sm text-neutral-600 mt-1">Level {gamification.profile.level} • {gamification.profile.streak_days} day streak 🔥</p>
             </div>
           </div>
 
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2 text-sm text-neutral-600">
-              <span>{gamification.profile.current_xp} / {gamification.profile.next_level_xp} XP</span>
-              <span>{xpProgress}%</span>
+          {/* XP Progress */}
+          <div className="bg-white rounded-xl p-4 mb-5 border border-purple-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-neutral-700">Experience Points</span>
+              <span className="font-bold text-purple-600">{gamification.profile.current_xp} / {gamification.profile.next_level_xp} XP</span>
             </div>
-            <Progress value={xpProgress} />
+            <div className="w-full bg-neutral-200 rounded-full h-3 overflow-hidden">
+              <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full" style={{ width: `${xpProgress}%` }} />
+            </div>
+            <p className="text-xs text-neutral-600 mt-2">{xpProgress}% to next level</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-2xl bg-neutral-50 border border-neutral-200 p-4">
-              <p className="text-sm font-medium text-neutral-700">Current streak</p>
-              <p className="mt-2 text-3xl font-semibold text-emerald-700">{gamification.profile.streak_days} days</p>
-              <p className="text-xs text-neutral-500 mt-1">Recent attendance activity</p>
-            </div>
-            <div className="rounded-2xl bg-neutral-50 border border-neutral-200 p-4">
-              <p className="text-sm font-medium text-neutral-700">Last updated</p>
-              <p className="mt-2 text-3xl font-semibold text-slate-700">{gamification.profile.last_activity_date ? new Date(gamification.profile.last_activity_date).toLocaleDateString() : 'N/A'}</p>
-              <p className="text-xs text-neutral-500 mt-1">Latest gamification metric sync</p>
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <div className="rounded-2xl bg-white border border-neutral-200 p-4">
-              <p className="text-sm font-semibold text-neutral-700 mb-3">Earned Badges</p>
-              <div className="space-y-3">
-                {unlockedBadges.length > 0 ? unlockedBadges.map((badgeEntry) => (
-                  <div key={badgeEntry.id} className="rounded-2xl bg-neutral-50 p-3">
-                    <div className="flex items-center gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Badges */}
+            <div className="bg-white rounded-xl p-4 border border-neutral-200">
+              <p className="font-bold text-neutral-900 mb-3">🏅 Badges Earned</p>
+              {unlockedBadges.length > 0 ? (
+                <div className="space-y-2">
+                  {unlockedBadges.map((badgeEntry) => (
+                    <div key={badgeEntry.id} className="flex items-center gap-2 p-2 bg-neutral-50 rounded-lg">
                       <span className="text-xl">{badgeEntry.badge.icon}</span>
                       <div>
-                        <p className="font-semibold">{badgeEntry.badge.name}</p>
+                        <p className="text-sm font-semibold text-neutral-700">{badgeEntry.badge.name}</p>
                         <p className="text-xs text-neutral-500">{badgeEntry.badge.description}</p>
                       </div>
                     </div>
-                  </div>
-                )) : (
-                  <p className="text-sm text-neutral-500">No badges earned yet. Keep training to unlock rewards.</p>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-neutral-500">Keep training to earn your first badge!</p>
+              )}
             </div>
-            <div className="rounded-2xl bg-white border border-neutral-200 p-4">
-              <p className="text-sm font-semibold text-neutral-700 mb-3">Active Challenges</p>
-              <div className="space-y-3">
-                {activeChallenges.length > 0 ? activeChallenges.map((challenge) => (
-                  <div key={challenge.id} className="rounded-2xl bg-neutral-50 p-3">
-                    <div className="flex items-center justify-between gap-3 mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{challenge.challenge.icon}</span>
-                        <div>
-                          <p className="font-semibold">{challenge.challenge.name}</p>
-                          <p className="text-xs text-neutral-500">{challenge.challenge.description}</p>
+
+            {/* Challenges */}
+            <div className="bg-white rounded-xl p-4 border border-neutral-200">
+              <p className="font-bold text-neutral-900 mb-3">⚡ Active Challenges</p>
+              {activeChallenges.length > 0 ? (
+                <div className="space-y-2">
+                  {activeChallenges.map((challenge) => {
+                    const progress = Math.min(100, Math.round((challenge.progress / Math.max(1, challenge.challenge.target_value)) * 100));
+                    return (
+                      <div key={challenge.id} className="p-2 bg-neutral-50 rounded-lg">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{challenge.challenge.icon}</span>
+                            <span className="font-semibold text-neutral-700 text-sm">{challenge.challenge.name}</span>
+                          </div>
+                          <span className="text-xs font-bold text-neutral-600">{progress}%</span>
+                        </div>
+                        <div className="w-full bg-neutral-200 rounded-full h-2 overflow-hidden">
+                          <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${progress}%` }} />
                         </div>
                       </div>
-                      <span className={`text-xs font-semibold ${challenge.completed_at ? 'text-emerald-700' : 'text-neutral-500'}`}>
-                        {challenge.completed_at ? 'Completed' : 'In progress'}
-                      </span>
-                    </div>
-                    <div className="text-xs text-neutral-600">{Math.min(100, Math.round((challenge.progress / Math.max(1, challenge.challenge.target_value)) * 100))}% complete</div>
-                    <div className="w-full bg-neutral-100 rounded-full h-2.5 mt-2 overflow-hidden">
-                      <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${Math.min(100, Math.round((challenge.progress / Math.max(1, challenge.challenge.target_value)) * 100))}%` }} />
-                    </div>
-                  </div>
-                )) : (
-                  <p className="text-sm text-neutral-500">No active challenges right now. Start training to unlock more.</p>
-                )}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-neutral-500">No active challenges. Start training!</p>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="text-xl font-semibold">Progression Insights</h2>
-            <p className="text-sm text-neutral-500">Recommendations generated from your latest metrics.</p>
-          </div>
-          <Zap className="h-5 w-5 text-amber-500" />
-        </div>
-
-        {progressionInsights.length === 0 ? (
-          <div className="text-sm text-neutral-500">No insights available yet. Generate a new progression update to see recommendations.</div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4">
+      {/* Recommendations */}
+      {progressionInsights.length > 0 && (
+        <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
+          <h2 className="text-2xl font-bold mb-4">💡 Tips for You</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {progressionInsights.map((insight) => (
-              <div key={insight.id} className="rounded-3xl border border-neutral-200 bg-neutral-50 p-5">
+              <div key={insight.id} className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="text-3xl">{INSIGHT_ICONS[insight.insight_type as keyof typeof INSIGHT_ICONS] || "💡"}</div>
-                  <div>
-                    <h3 className="font-semibold">{insight.title}</h3>
-                    <p className="mt-2 text-sm text-neutral-600">{insight.description}</p>
-                    <div className="mt-3 flex items-center justify-between text-xs text-neutral-500">
-                      <span>{insight.metric_name}: {insight.metric_value.toFixed(1)}</span>
-                      <span>Confidence {insight.confidence_score.toFixed(0)}%</span>
-                    </div>
+                  <span className="text-2xl">{INSIGHT_ICONS[insight.insight_type as keyof typeof INSIGHT_ICONS] || "💡"}</span>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-neutral-900">{insight.title}</h3>
+                    <p className="text-sm text-neutral-700 mt-1">{insight.description}</p>
+                    <p className="text-xs text-neutral-600 mt-2 font-semibold">{insight.metric_name}: {insight.metric_value.toFixed(1)}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
+      {/* Upcoming & Recent Sessions */}
       <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden shadow-sm">
         <div className="p-6 border-b border-neutral-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold">Recent Sessions</h2>
-              <p className="text-sm text-neutral-500">Your latest training activities</p>
+              <h2 className="text-2xl font-bold">📅 Your Recent Sessions</h2>
+              <p className="text-sm text-neutral-500 mt-1">Latest training you attended</p>
             </div>
-            <Link to="/dashboard/profile">
-              <Button variant="ghost" size="sm">
-                View Profile <ArrowRight className="h-4 w-4 ml-1" />
+            <Link to={childStudentId ? `/dashboard/students/${childStudentId}` : "/dashboard/profile"}>
+              <Button variant="outline" size="sm">
+                More Details →
               </Button>
             </Link>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-neutral-50 border-b border-neutral-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Session</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Instructor</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Rating</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {recentSessions.map((session) => (
-                <tr key={session.id} className="hover:bg-neutral-50">
-                  <td className="px-6 py-4 text-sm">{session.name}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-600">{session.date}</td>
-                  <td className="px-6 py-4 text-sm text-neutral-600">{session.instructor}</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
-                      {session.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium">{session.rating}</td>
+        {recentSessions.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-neutral-50 border-b border-neutral-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-bold text-neutral-700">Session</th>
+                  <th className="px-6 py-3 text-left text-sm font-bold text-neutral-700">Date</th>
+                  <th className="px-6 py-3 text-left text-sm font-bold text-neutral-700">Instructor</th>
+                  <th className="px-6 py-3 text-left text-sm font-bold text-neutral-700">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-neutral-200">
+                {recentSessions.map((session) => (
+                  <tr key={session.id} className="hover:bg-neutral-50 transition">
+                    <td className="px-6 py-4 text-sm font-medium text-neutral-900">{session.name}</td>
+                    <td className="px-6 py-4 text-sm text-neutral-600">{new Date(session.date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-sm text-neutral-600">{session.instructor}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                        ✓ {session.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-12 text-center">
+            <Calendar className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
+            <p className="text-neutral-600 font-medium">No sessions yet</p>
+            <p className="text-sm text-neutral-500 mt-1">Check the schedule for upcoming classes</p>
+            <Link to="/dashboard/schedule">
+              <Button className="mt-4">📆 View Schedule</Button>
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl p-6 text-white">
+        <h2 className="text-xl font-bold mb-4">🚀 Quick Links</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <Link to="/dashboard/schedule">
+            <Button variant="secondary" className="w-full">📅 Class Schedule</Button>
+          </Link>
+          <Link to={childStudentId ? `/dashboard/students/${childStudentId}` : "/dashboard/profile"}>
+            <Button variant="secondary" className="w-full">👤 My Profile</Button>
+          </Link>
+          <Link to="/dashboard/gamification">
+            <Button variant="secondary" className="w-full">🎮 Leaderboard</Button>
+          </Link>
+          <Link to="/dashboard/shop">
+            <Button variant="secondary" className="w-full">🛒 Shop</Button>
+          </Link>
         </div>
       </div>
     </div>

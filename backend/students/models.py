@@ -4,6 +4,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from .belt_progression import BELT_CHOICES, get_next_belt, get_belt_progression_percentage
+
 
 class Student(models.Model):
     ROLE_CHOICES = [
@@ -24,7 +26,7 @@ class Student(models.Model):
     gender = models.CharField(max_length=32)
     role = models.CharField(max_length=24, choices=ROLE_CHOICES, default='Student')
     date_enrolled = models.DateField(auto_now_add=True)
-    current_belt_rank = models.CharField(max_length=128, blank=True)
+    current_belt_rank = models.CharField(max_length=128, choices=BELT_CHOICES, blank=True)
     club_branch = models.CharField(max_length=128, blank=True)
     status = models.CharField(max_length=24, choices=STATUS_CHOICES, default='active')
 
@@ -284,9 +286,9 @@ class Match(models.Model):
 
 class InstructorRating(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='instructor_ratings')
-    kata_score = models.IntegerField()
-    kumite_score = models.IntegerField()
-    discipline_score = models.IntegerField()
+    kata_score = models.IntegerField(null=True, blank=True)
+    kumite_score = models.IntegerField(null=True, blank=True)
+    discipline_score = models.IntegerField(null=True, blank=True)
     remarks = models.TextField(blank=True)
     date_evaluated = models.DateField()
 
@@ -389,8 +391,8 @@ class BeltProgressionIndicator(models.Model):
     ]
 
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='belt_progression_indicators')
-    current_belt = models.CharField(max_length=128, blank=True)
-    target_belt = models.CharField(max_length=128, blank=True)
+    current_belt = models.CharField(max_length=128, choices=BELT_CHOICES, blank=True)
+    target_belt = models.CharField(max_length=128, choices=BELT_CHOICES, blank=True)
     readiness_status = models.CharField(max_length=32, choices=READINESS_STATUS_CHOICES, default='not_ready')
     kata_readiness = models.FloatField(default=0.0)
     kumite_readiness = models.FloatField(default=0.0)
@@ -631,6 +633,109 @@ class ParentStudent(models.Model):
         ('guardian', 'Guardian'),
         ('other', 'Other'),
     ], default='guardian')
+
+
+# Signal handlers to update ratings when InstructorRating is created/updated
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.db import transaction
+import logging
+
+logger = logging.getLogger(__name__)
+
+@receiver(post_save, sender=InstructorRating)
+def update_instructor_rating_averages(sender, instance, created, **kwargs):
+    """Update KataRating and KumiteRating with average instructor scores"""
+    try:
+        student = instance.student
+        from django.db.models import Avg
+        
+        # Only process if this record has at least one score
+        if not any([instance.kata_score, instance.kumite_score, instance.discipline_score]):
+            return
+        
+        # Calculate Kata average if this rating has a kata score
+        if instance.kata_score is not None:
+            kata_avg = InstructorRating.objects.filter(
+                student=student, kata_score__isnull=False
+            ).aggregate(avg=Avg('kata_score'))['avg']
+            
+            # Use get_or_create to ensure KataRating exists, then update it with raw update to avoid signal loops
+            try:
+                KataRating.objects.filter(student=student).update(instructor_kata_score=kata_avg or 0.0)
+                # Recalculate combined score
+                kata_rating = KataRating.objects.get(student=student)
+                combined = (kata_rating.pose_evaluation_avg + (kata_avg or 0.0)) / 2
+                KataRating.objects.filter(student=student).update(combined_kata_score=combined)
+            except KataRating.DoesNotExist:
+                pass
+        
+        # Calculate Kumite average if this rating has a kumite score
+        if instance.kumite_score is not None:
+            kumite_avg = InstructorRating.objects.filter(
+                student=student, kumite_score__isnull=False
+            ).aggregate(avg=Avg('kumite_score'))['avg']
+            
+            # Use raw update to avoid signal loops
+            try:
+                KumiteRating.objects.filter(student=student).update(instructor_kumite_score=kumite_avg or 0.0)
+                # Recalculate combined score
+                kumite_rating = KumiteRating.objects.get(student=student)
+                combined = (kumite_rating.match_avg_score + (kumite_avg or 0.0)) / 2
+                KumiteRating.objects.filter(student=student).update(combined_kumite_score=combined)
+            except KumiteRating.DoesNotExist:
+                pass
+                
+    except Exception as e:
+        logger.error(f"Error updating instructor rating averages: {str(e)}", exc_info=True)
+
+@receiver(post_delete, sender=InstructorRating)
+def update_instructor_rating_averages_on_delete(sender, instance, **kwargs):
+    """Update ratings when InstructorRating is deleted"""
+    try:
+        student = instance.student
+        from django.db.models import Avg
+        
+        # Recalculate Kata average
+        kata_avg = InstructorRating.objects.filter(
+            student=student, kata_score__isnull=False
+        ).aggregate(avg=Avg('kata_score'))['avg']
+        
+        try:
+            if kata_avg is not None:
+                KataRating.objects.filter(student=student).update(instructor_kata_score=kata_avg)
+                kata_rating = KataRating.objects.get(student=student)
+                combined = (kata_rating.pose_evaluation_avg + kata_avg) / 2
+                KataRating.objects.filter(student=student).update(combined_kata_score=combined)
+            else:
+                KataRating.objects.filter(student=student).update(
+                    instructor_kata_score=0.0,
+                    combined_kata_score=KataRating.objects.filter(student=student).values('pose_evaluation_avg').first()['pose_evaluation_avg'] if KataRating.objects.filter(student=student).exists() else 0.0
+                )
+        except KataRating.DoesNotExist:
+            pass
+        
+        # Recalculate Kumite average
+        kumite_avg = InstructorRating.objects.filter(
+            student=student, kumite_score__isnull=False
+        ).aggregate(avg=Avg('kumite_score'))['avg']
+        
+        try:
+            if kumite_avg is not None:
+                KumiteRating.objects.filter(student=student).update(instructor_kumite_score=kumite_avg)
+                kumite_rating = KumiteRating.objects.get(student=student)
+                combined = (kumite_rating.match_avg_score + kumite_avg) / 2
+                KumiteRating.objects.filter(student=student).update(combined_kumite_score=combined)
+            else:
+                KumiteRating.objects.filter(student=student).update(
+                    instructor_kumite_score=0.0,
+                    combined_kumite_score=KumiteRating.objects.filter(student=student).values('match_avg_score').first()['match_avg_score'] if KumiteRating.objects.filter(student=student).exists() else 0.0
+                )
+        except KumiteRating.DoesNotExist:
+            pass
+            
+    except Exception as e:
+        logger.error(f"Error updating instructor rating averages on delete: {str(e)}", exc_info=True)
     is_primary_contact = models.BooleanField(default=False)
     added_at = models.DateTimeField(auto_now_add=True)
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='added_parent_relationships')
@@ -663,7 +768,6 @@ class Notification(models.Model):
         ('belt_exam_reminder', 'Belt Exam Reminder'),
         ('marked_absent', 'Marked Absent'),
         ('attendance_streak_achieved', 'Attendance Streak Achieved'),
-        ('grade_posted', 'Grade Posted'),
         ('belt_promotion_eligibility_achieved', 'Belt Promotion Eligibility Achieved'),
         ('new_rank_achieved', 'New Rank Achieved'),
         ('level_increased', 'Level Increased'),
@@ -675,9 +779,7 @@ class Notification(models.Model):
         ('seminar_added', 'Seminar Added'),
         ('attendance_recorded', 'Attendance Recorded'),
         ('pose_evaluation_completed', 'Pose Evaluation Completed'),
-        ('grading_submitted', 'Grading Submitted'),
         ('promotion_eligible', 'Promotion Eligible'),
-        ('grade_updated', 'Grade Updated'),
         ('match_result_recorded', 'Match Result Recorded'),
         ('top_performers_identified', 'Top Performers Identified'),
         ('weekly_report_generated', 'Weekly Report Generated'),
@@ -686,7 +788,6 @@ class Notification(models.Model):
         ('child_schedule_changed', 'Child Schedule Changed'),
         ('child_attended_class', 'Child Attended Class'),
         ('child_was_absent', 'Child Was Absent'),
-        ('child_grading_available', 'Child Grading Available'),
         ('child_promotion_eligible', 'Child Promotion Eligible'),
         ('child_promotion_achieved', 'Child Promotion Achieved'),
         ('child_achievement_earned', 'Child Achievement Earned'),

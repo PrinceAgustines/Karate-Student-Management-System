@@ -341,12 +341,93 @@ export async function updateStanceEvaluation(evaluationId: number, payload: Reco
   return handleResponse(response);
 }
 
+export async function deleteStanceEvaluation(evaluationId: number) {
+  const response = await fetch(`${API_BASE}/api/students/stance-evaluations/${evaluationId}/`, {
+    method: 'DELETE',
+    headers: buildHeaders(true),
+  });
+  
+  if (!response.ok) {
+    const json = await response.json().catch(() => null);
+    const error = json?.detail || json?.message || extractErrorMessage(json) || `HTTP ${response.status}: Failed to delete evaluation`;
+    throw new Error(error);
+  }
+  
+  return true;
+}
+
 export async function fetchInstructorRatings() {
   const response = await fetch(`${API_BASE}/api/students/instructor-ratings/`, {
     method: "GET",
     headers: buildHeaders(true),
   });
   return handleResponse(response);
+}
+
+export async function fetchInstructorRatingsByStudent(studentId: number) {
+  const response = await fetch(`${API_BASE}/api/students/instructor-ratings/?student_id=${studentId}`, {
+    method: "GET",
+    headers: buildHeaders(true),
+  });
+  return handleResponse(response);
+}
+
+export async function fetchInstructorRating(ratingId: number) {
+  const response = await fetch(`${API_BASE}/api/students/instructor-ratings/${ratingId}/`, {
+    method: "GET",
+    headers: buildHeaders(true),
+  });
+  return handleResponse(response);
+}
+
+export async function createInstructorRating(payload: {
+  student: number;
+  kata_score: number;
+  kumite_score: number;
+  discipline_score: number;
+  remarks: string;
+  date_evaluated: string;
+}) {
+  const response = await fetch(`${API_BASE}/api/students/instructor-ratings/`, {
+    method: "POST",
+    headers: buildHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function updateInstructorRating(
+  ratingId: number,
+  payload: {
+    kata_score?: number;
+    kumite_score?: number;
+    discipline_score?: number;
+    remarks?: string;
+    date_evaluated?: string;
+  }
+) {
+  const response = await fetch(`${API_BASE}/api/students/instructor-ratings/${ratingId}/`, {
+    method: "PATCH",
+    headers: buildHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function deleteInstructorRating(ratingId: number) {
+  const response = await fetch(`${API_BASE}/api/students/instructor-ratings/${ratingId}/`, {
+    method: "DELETE",
+    headers: buildHeaders(true),
+  });
+  
+  if (!response.ok) {
+    // Try to parse error response
+    const json = await response.json().catch(() => null);
+    const error = json?.detail || json?.message || extractErrorMessage(json) || `HTTP ${response.status}: Failed to delete rating`;
+    throw new Error(error);
+  }
+  
+  return true;
 }
 
 export async function fetchPerformanceSummaries(params?: { student_id?: number; period?: string }) {
@@ -406,6 +487,23 @@ export async function fetchBeltProgressionIndicators(params?: { student_id?: num
   const query = buildQueryString(params);
   const response = await fetch(`${API_BASE}/api/students/belt-progression-indicators/${query}`, {
     method: "GET",
+    headers: buildHeaders(true),
+  });
+  return handleResponse(response);
+}
+
+export async function updateBeltProgressionIndicator(indicatorId: number, payload: Record<string, any>) {
+  const response = await fetch(`${API_BASE}/api/students/belt-progression-indicators/${indicatorId}/`, {
+    method: "PATCH",
+    headers: buildHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+export async function promoteBeltProgression(indicatorId: number) {
+  const response = await fetch(`${API_BASE}/api/students/belt-progression-indicators/${indicatorId}/promote/`, {
+    method: "PATCH",
     headers: buildHeaders(true),
   });
   return handleResponse(response);

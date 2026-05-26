@@ -165,7 +165,6 @@ class PoseTemplateSerializer(serializers.ModelSerializer):
 
 
 class InstructorRatingSerializer(serializers.ModelSerializer):
-    student = serializers.IntegerField(source='student.student_id', read_only=True)
     student_name = serializers.CharField(source='student.__str__', read_only=True)
 
     class Meta:
@@ -180,6 +179,37 @@ class InstructorRatingSerializer(serializers.ModelSerializer):
             'remarks',
             'date_evaluated',
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make all scores optional for partial updates
+        self.fields['kata_score'].required = False
+        self.fields['kumite_score'].required = False
+        self.fields['discipline_score'].required = False
+
+    def validate_kata_score(self, value):
+        # Only validate if provided (allow None for partial updates)
+        if value is not None and not (1 <= value <= 100):
+            raise serializers.ValidationError("Kata score must be between 1 and 100.")
+        return value
+
+    def validate_kumite_score(self, value):
+        # Only validate if provided (allow None for partial updates)
+        if value is not None and not (1 <= value <= 100):
+            raise serializers.ValidationError("Kumite score must be between 1 and 100.")
+        return value
+
+    def validate_discipline_score(self, value):
+        # Only validate if provided (allow None for partial updates)
+        if value is not None and not (1 <= value <= 100):
+            raise serializers.ValidationError("Discipline score must be between 1 and 100.")
+        return value
+
+    def validate_date_evaluated(self, value):
+        from django.utils import timezone
+        if value > timezone.now().date():
+            raise serializers.ValidationError("Date evaluated cannot be in the future.")
+        return value
 
 
 class KataRatingSerializer(serializers.ModelSerializer):

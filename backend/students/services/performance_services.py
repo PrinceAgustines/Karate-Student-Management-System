@@ -251,18 +251,12 @@ class PerformanceAggregationService:
         }
 
 
+from ..belt_progression import BELT_LEVELS, get_next_belt as get_next_belt_util
+
+
 class BeltProgressionService:
-    BELT_ORDER = [
-        'White',
-        'Yellow',
-        'Orange',
-        'Green',
-        'Blue',
-        'Purple',
-        'Brown',
-        'Red',
-        'Black',
-    ]
+    # Use the official belt order from constants
+    BELT_ORDER = BELT_LEVELS
 
     DEFAULT_REQUIREMENTS = {
         'kata': 75.0,
@@ -274,12 +268,8 @@ class BeltProgressionService:
     @staticmethod
     def get_next_belt(current_belt: str):
         if not current_belt:
-            return 'Yellow'
-        try:
-            index = BeltProgressionService.BELT_ORDER.index(current_belt)
-            return BeltProgressionService.BELT_ORDER[min(index + 1, len(BeltProgressionService.BELT_ORDER) - 1)]
-        except ValueError:
-            return 'Yellow'
+            return BELT_LEVELS[0]  # White Belt
+        return get_next_belt_util(current_belt)
 
     @staticmethod
     def calculate_readiness(student: Student, kata_average: float, kumite_average: float, discipline_average: float, attendance_percentage: float):

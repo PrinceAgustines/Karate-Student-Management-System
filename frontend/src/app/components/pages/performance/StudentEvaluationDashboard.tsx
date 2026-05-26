@@ -9,9 +9,8 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Edit,
-  Save,
   X,
+  Shield,
 } from "lucide-react";
 import { Button } from "../../ui/button";
 import {
@@ -33,8 +32,9 @@ import {
   fetchStudentPerformanceDashboard,
   fetchStudentById,
   generateStudentProgression,
-  updateStudentById,
+  updateBeltProgressionIndicator,
 } from "../../../api";
+import { InstructorRatingEditor } from "./InstructorRatingEditor";
 
 type Student = {
   student_id: number;
@@ -143,6 +143,22 @@ export function StudentEvaluationDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [editBelt, setEditBelt] = useState<string>("");
   const [editNotes, setEditNotes] = useState<string>("");
+  const [ratingUpdateKey, setRatingUpdateKey] = useState(0);
+
+  const handleRatingUpdate = async () => {
+    // Trigger progression generation automatically when rating is saved
+    if (!studentId) return;
+    try {
+      const result = await generateStudentProgression(studentId, "monthly");
+      setKataRating(result.kata_rating);
+      setKumiteRating(result.kumite_rating);
+      setPerformanceSummary(result.performance_summary);
+      setBeltProgression(result.belt_progression);
+      setProgressionInsights(result.progression_insights);
+    } catch (err) {
+      console.error("Failed to auto-generate progression:", err instanceof Error ? err.message : "Unknown error");
+    }
+  };
 
   useEffect(() => {
     if (!studentId) return;
@@ -158,42 +174,36 @@ export function StudentEvaluationDashboard() {
         setPerformanceSummary(dashboardData?.performance_summary || null);
         setBeltProgression(dashboardData?.belt_progression || null);
         setProgressionInsights(dashboardData?.progression_insights || []);
-
-        if (dashboardData?.belt_progression) {
-          setEditBelt(dashboardData.belt_progression.current_belt);
-          setEditNotes(dashboardData.belt_progression.notes || "");
-        }
       })
       .catch((err) => console.error("Failed to load student evaluation:", err))
       .finally(() => setLoading(false));
-  }, [studentId]);
+  }, [studentId, ratingUpdateKey]);
 
-  const handleGenerateProgression = async () => {
-    if (!studentId) return;
+  const handleSaveEdits = async () => {
+    if (!studentId || !beltProgression) return;
     try {
+      // Update belt progression indicator to promote the student
+      const updatedBelt = await updateBeltProgressionIndicator(beltProgression.id, {
+        current_belt: beltProgression.target_belt,
+      });
+      
+      // Regenerate progression so the new target belt is calculated based on levels
       const result = await generateStudentProgression(studentId, "monthly");
       setKataRating(result.kata_rating);
       setKumiteRating(result.kumite_rating);
       setPerformanceSummary(result.performance_summary);
       setBeltProgression(result.belt_progression);
       setProgressionInsights(result.progression_insights);
-      alert("Progression generated successfully!");
+      
+      setIsEditing(false);
+      alert("Student promoted to " + beltProgression.target_belt + " belt!");
     } catch (err) {
-      alert("Failed to generate progression: " + (err instanceof Error ? err.message : "Unknown error"));
+      alert("Failed to promote student: " + (err instanceof Error ? err.message : "Unknown error"));
     }
   };
 
-  const handleSaveEdits = async () => {
-    if (!studentId || !beltProgression) return;
-    try {
-      await updateStudentById(studentId, { current_belt_rank: editBelt });
-      setBeltProgression({ ...beltProgression, current_belt: editBelt, notes: editNotes });
-      setIsEditing(false);
-      alert("Updates saved successfully!");
-    } catch (err) {
-      alert("Failed to save updates: " + (err instanceof Error ? err.message : "Unknown error"));
-    }
-  };
+  const isReadyForPromotion = beltProgression?.readiness_status?.toLowerCase() === "ready" || 
+    (beltProgression?.overall_readiness_percentage || 0) >= 100;
 
   if (loading) {
     return (
@@ -262,20 +272,21 @@ export function StudentEvaluationDashboard() {
         <div className="space-x-2">
           {!isEditing ? (
             <>
-              <Button onClick={() => setIsEditing(true)} variant="outline">
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Rating
+              <Button 
+                onClick={() => setIsEditing(true)} 
+                variant={isReadyForPromotion ? "default" : "outline"}
+                disabled={!isReadyForPromotion}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                {isReadyForPromotion ? "Promote to " + beltProgression?.target_belt : "Not Ready for Promotion"}
               </Button>
-              <Button onClick={handleGenerateProgression} variant="default">
-                <Zap className="h-4 w-4 mr-2" />
-                Generate Progression
-              </Button>
+
             </>
           ) : (
             <>
-              <Button onClick={handleSaveEdits} variant="default">
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
+              <Button onClick={handleSaveEdits} variant="default" className="bg-green-600 hover:bg-green-700">
+                <Shield className="h-4 w-4 mr-2" />
+                Confirm Promotion
               </Button>
               <Button onClick={() => setIsEditing(false)} variant="outline">
                 <X className="h-4 w-4 mr-2" />
@@ -334,28 +345,70 @@ export function StudentEvaluationDashboard() {
         </div>
       </div>
 
-      {/* Edit Mode */}
+      {/* Edit Mode - Belt Promotion */}
       {isEditing && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold mb-4">Edit Student Rating</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Current Belt Rank</label>
-              <input
-                type="text"
-                value={editBelt}
-                onChange={(e) => setEditBelt(e.target.value)}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
-              />
+        <div className={`border rounded-lg p-6 ${isReadyForPromotion ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
+          <h3 className="font-semibold mb-6 text-lg">Belt Promotion Status</h3>
+          <div className="space-y-6">
+            {/* Current and Target Belts */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Current Belt</label>
+                <div className="px-4 py-3 bg-white border border-neutral-300 rounded-lg text-lg font-semibold text-neutral-800 capitalize">
+                  {beltProgression?.current_belt || "N/A"}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Target Belt (Next Promotion)</label>
+                <div className="px-4 py-3 bg-white border border-neutral-300 rounded-lg text-lg font-semibold text-neutral-800 capitalize">
+                  {beltProgression?.target_belt || "N/A"}
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Notes</label>
-              <textarea
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg"
-                rows={4}
-              />
+
+            {/* Readiness Status */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium">Overall Readiness</label>
+                <span className={`text-2xl font-bold ${isReadyForPromotion ? 'text-green-600' : 'text-yellow-600'}`}>
+                  {beltProgression?.overall_readiness_percentage || 0}%
+                </span>
+              </div>
+              <div className="w-full bg-neutral-200 rounded-full h-3">
+                <div
+                  className={`h-3 rounded-full transition-all ${isReadyForPromotion ? 'bg-green-500' : 'bg-yellow-500'}`}
+                  style={{ width: `${Math.min(beltProgression?.overall_readiness_percentage || 0, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Readiness Details */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-neutral-600 mb-1">Kata Readiness</p>
+                <p className="text-lg font-semibold">{beltProgression?.kata_readiness || 0}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-neutral-600 mb-1">Kumite Readiness</p>
+                <p className="text-lg font-semibold">{beltProgression?.kumite_readiness || 0}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-neutral-600 mb-1">Discipline Readiness</p>
+                <p className="text-lg font-semibold">{beltProgression?.discipline_readiness || 0}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-neutral-600 mb-1">Attendance Readiness</p>
+                <p className="text-lg font-semibold">{beltProgression?.attendance_readiness || 0}%</p>
+              </div>
+            </div>
+
+            {/* Status Message */}
+            <div className={`p-4 rounded-lg ${isReadyForPromotion ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+              {isReadyForPromotion ? (
+                <p className="font-semibold">✓ Student is ready for promotion!</p>
+              ) : (
+                <p className="font-semibold">⚠ Student is not yet ready for promotion. Continue training.</p>
+              )}
             </div>
           </div>
         </div>
@@ -370,7 +423,7 @@ export function StudentEvaluationDashboard() {
           </h2>
           {kataRating && <span className="text-2xl font-bold text-red-600">{kataRating.combined_kata_score.toFixed(1)}</span>}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-neutral-50 p-4 rounded-lg">
             <p className="text-sm text-neutral-600 mb-2">Pose Evaluation Average</p>
             <p className="text-2xl font-bold">{kataRating?.pose_evaluation_avg.toFixed(1) || "N/A"}</p>
@@ -378,14 +431,25 @@ export function StudentEvaluationDashboard() {
           </div>
           <div className="bg-neutral-50 p-4 rounded-lg">
             <p className="text-sm text-neutral-600 mb-2">Instructor Rating</p>
-            <p className="text-2xl font-bold">{kataRating?.instructor_kata_score.toFixed(1) || "N/A"}</p>
-            <p className="text-xs text-neutral-500">From instructor evaluation</p>
+            <p className="text-2xl font-bold">{kataRating?.instructor_kata_score.toFixed(1) || "N/A"}/100</p>
+            <p className="text-xs text-neutral-500">Instructor evaluation</p>
           </div>
           <div className="bg-red-50 p-4 rounded-lg">
             <p className="text-sm text-neutral-600 mb-2">Combined Score</p>
             <p className="text-2xl font-bold text-red-600">{kataRating?.combined_kata_score.toFixed(1) || "N/A"}</p>
             <p className="text-xs text-neutral-500">Average of both</p>
           </div>
+        </div>
+
+        <div className="border-t border-neutral-200 pt-6">
+          <h3 className="font-semibold text-lg mb-4">Instructor Rating</h3>
+          {studentId && (
+            <InstructorRatingEditor
+              studentId={Number(studentId)}
+              ratingType="kata"
+              onUpdate={handleRatingUpdate}
+            />
+          )}
         </div>
       </div>
 
@@ -398,7 +462,7 @@ export function StudentEvaluationDashboard() {
           </h2>
           {kumiteRating && <span className="text-2xl font-bold text-blue-600">{kumiteRating.combined_kumite_score.toFixed(1)}</span>}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-neutral-50 p-4 rounded-lg">
             <p className="text-sm text-neutral-600 mb-2">Match Average</p>
             <p className="text-2xl font-bold">{kumiteRating?.match_avg_score.toFixed(1) || "N/A"}</p>
@@ -406,8 +470,8 @@ export function StudentEvaluationDashboard() {
           </div>
           <div className="bg-neutral-50 p-4 rounded-lg">
             <p className="text-sm text-neutral-600 mb-2">Instructor Rating</p>
-            <p className="text-2xl font-bold">{kumiteRating?.instructor_kumite_score.toFixed(1) || "N/A"}</p>
-            <p className="text-xs text-neutral-500">From instructor</p>
+            <p className="text-2xl font-bold">{kumiteRating?.instructor_kumite_score.toFixed(1) || "N/A"}/100</p>
+            <p className="text-xs text-neutral-500">Instructor evaluation</p>
           </div>
           <div className="bg-blue-50 p-4 rounded-lg">
             <p className="text-sm text-neutral-600 mb-2">Combined Score</p>
@@ -420,7 +484,58 @@ export function StudentEvaluationDashboard() {
             <p className="text-xs text-neutral-500">Wins - Losses</p>
           </div>
         </div>
+
+        <div className="border-t border-neutral-200 pt-6">
+          <h3 className="font-semibold text-lg mb-4">Instructor Rating</h3>
+          {studentId && (
+            <InstructorRatingEditor
+              studentId={Number(studentId)}
+              ratingType="kumite"
+              onUpdate={handleRatingUpdate}
+            />
+          )}
+        </div>
       </div>
+
+      {/* Discipline Evaluation Section */}
+      <div className="bg-white border border-neutral-200 rounded-lg p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Shield className="h-5 w-5 text-green-600" />
+            Discipline Evaluation
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-neutral-50 p-4 rounded-lg">
+            <p className="text-sm text-neutral-600 mb-2">Conduct & Behavior</p>
+            <p className="text-2xl font-bold">N/A</p>
+            <p className="text-xs text-neutral-500">From instructor evaluation</p>
+          </div>
+          <div className="bg-neutral-50 p-4 rounded-lg">
+            <p className="text-sm text-neutral-600 mb-2">Attendance & Punctuality</p>
+            <p className="text-2xl font-bold">N/A</p>
+            <p className="text-xs text-neutral-500">Tracking record</p>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <p className="text-sm text-neutral-600 mb-2">Overall Discipline</p>
+            <p className="text-2xl font-bold text-green-600">N/A</p>
+            <p className="text-xs text-neutral-500">Instructor rating</p>
+          </div>
+        </div>
+
+        <div className="border-t border-neutral-200 pt-6">
+          <h3 className="font-semibold text-lg mb-4">Instructor Rating</h3>
+          {studentId && (
+            <InstructorRatingEditor
+              studentId={Number(studentId)}
+              ratingType="discipline"
+              onUpdate={handleRatingUpdate}
+            />
+          )}
+        </div>
+      </div>
+
+
 
       {/* Performance Summary & Charts */}
       {performanceSummary && (

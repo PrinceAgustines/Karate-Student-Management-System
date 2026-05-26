@@ -136,6 +136,8 @@ export function StudentProfile() {
   const [profileForm, setProfileForm] = useState<Partial<StudentDetail & UserMe>>({});
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [performanceRatings, setPerformanceRatings] = useState<PerformanceRating[]>([]);
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadProfile() {
@@ -322,8 +324,37 @@ export function StudentProfile() {
     },
   ], [attendanceHistory.length, belt, performanceRatings]);
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!profileForm.first_name?.trim()) {
+      errors.first_name = "First name is required";
+    }
+    if (!profileForm.last_name?.trim()) {
+      errors.last_name = "Last name is required";
+    }
+    if (profileForm.email_address && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileForm.email_address)) {
+      errors.email_address = "Invalid email format";
+    }
+    if (profileForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileForm.email)) {
+      errors.email = "Invalid email format";
+    }
+    if (profileForm.phone && !/^[\d\s+()-]*$/.test(profileForm.phone)) {
+      errors.phone = "Invalid phone format";
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async () => {
+    if (!validateForm()) {
+      setSaveStatus({ type: 'error', message: 'Please fix validation errors before saving' });
+      return;
+    }
+
     setSaving(true);
+    setSaveStatus({ type: null, message: '' });
 
     try {
       if (isParentProfile && parentProfile) {
@@ -331,15 +362,18 @@ export function StudentProfile() {
           first_name: profileForm.first_name,
           last_name: profileForm.last_name,
           email: profileForm.email,
+          avatar_url: profileForm.avatar_url,
         });
         setParentProfile(updated);
         setEditMode(false);
-        setSaving(false);
+        setSaveStatus({ type: 'success', message: 'Profile updated successfully!' });
+        setTimeout(() => setSaveStatus({ type: null, message: '' }), 3000);
         return;
       }
 
       if (!student?.student_id) {
         setSaving(false);
+        setSaveStatus({ type: 'error', message: 'Student profile not found' });
         return;
       }
 
@@ -354,12 +388,16 @@ export function StudentProfile() {
       });
       setStudent(updated);
       setEditMode(false);
-    } catch {
-      // ignore save errors for now
+      setSaveStatus({ type: 'success', message: 'Profile updated successfully!' });
+      setTimeout(() => setSaveStatus({ type: null, message: '' }), 3000);
+    } catch (error) {
+      setSaveStatus({ type: 'error', message: error instanceof Error ? error.message : 'Failed to save profile' });
     } finally {
       setSaving(false);
     }
   };
+
+  const canEdit = isParentProfile || user.role === 'admin' || user.role === 'instructor' || (user.role === 'student' && !studentId);
 
   const attendanceRate = attendanceHistory.length > 0 
     ? Math.round((attendanceHistory.filter(a => a.status === "Present").length / attendanceHistory.length) * 100)
@@ -372,6 +410,17 @@ export function StudentProfile() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto space-y-6">
+        {/* Status Messages */}
+        {saveStatus.type && (
+          <div className={`rounded-lg border p-4 ${
+            saveStatus.type === 'success'
+              ? 'bg-green-50 border-green-200 text-green-800'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            <p className="text-sm font-medium">{saveStatus.message}</p>
+          </div>
+        )}
+
         {/* Header Navigation */}
         <div className="flex items-center justify-between">
           <Link to={user.role === "student" ? "/dashboard/student" : user.role === "parent" ? "/dashboard/children" : "/dashboard/students"}>
@@ -381,24 +430,31 @@ export function StudentProfile() {
             </Button>
           </Link>
           <div className="flex items-center gap-2">
-            <Button
-              variant={editMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => setEditMode(!editMode)}
-              className={editMode ? "bg-red-600 hover:bg-red-700" : ""}
-            >
-              {editMode ? "Cancel" : "Edit Profile"}
-            </Button>
-            {editMode && (
-              <Button
-                className="bg-green-600 hover:bg-green-700"
-                size="sm"
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? <Loader className="h-4 w-4 mr-2 animate-spin" /> : null}
-                Save Changes
-              </Button>
+            {canEdit && (
+              <>
+                <Button
+                  variant={editMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setEditMode(!editMode);
+                    setValidationErrors({});
+                  }}
+                  className={editMode ? "bg-red-600 hover:bg-red-700" : ""}
+                >
+                  {editMode ? "Cancel" : "Edit Profile"}
+                </Button>
+                {editMode && (
+                  <Button
+                    className="bg-green-600 hover:bg-green-700"
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    {saving ? <Loader className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    Save Changes
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -549,17 +605,29 @@ export function StudentProfile() {
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs font-semibold text-neutral-600 block mb-2">Email Address</label>
+                    <label htmlFor="email" className="text-xs font-semibold text-neutral-600 block mb-2">
+                      Email Address
+                      {validationErrors[isParentProfile ? 'email' : 'email_address'] && (
+                        <span className="text-red-600"> *</span>
+                      )}
+                    </label>
                     {editMode ? (
-                      <Input
-                        value={isParentProfile ? profileForm.email ?? "" : profileForm.email_address ?? ""}
-                        onChange={(e) => setProfileForm({
-                          ...profileForm,
-                          ...(isParentProfile ? { email: e.target.value } : { email_address: e.target.value }),
-                        })}
-                        placeholder="Enter email address"
-                        className="w-full"
-                      />
+                      <>
+                        <Input
+                          id="email"
+                          name="email"
+                          value={isParentProfile ? profileForm.email ?? "" : profileForm.email_address ?? ""}
+                          onChange={(e) => setProfileForm({
+                            ...profileForm,
+                            ...(isParentProfile ? { email: e.target.value } : { email_address: e.target.value }),
+                          })}
+                          placeholder="Enter email address"
+                          className={`w-full ${validationErrors[isParentProfile ? 'email' : 'email_address'] ? 'border-red-500' : ''}`}
+                        />
+                        {validationErrors[isParentProfile ? 'email' : 'email_address'] && (
+                          <p className="text-xs text-red-600 mt-1">{validationErrors[isParentProfile ? 'email' : 'email_address']}</p>
+                        )}
+                      </>
                     ) : (
                       <p className="text-neutral-700 font-medium">
                         {isParentProfile ? parentProfile?.email ?? "—" : student?.email_address ?? "—"}
@@ -567,14 +635,24 @@ export function StudentProfile() {
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-neutral-600 block mb-2">Phone Number</label>
+                    <label htmlFor="phone" className="text-xs font-semibold text-neutral-600 block mb-2">
+                      Phone Number
+                      {validationErrors.phone && <span className="text-red-600"> *</span>}
+                    </label>
                     {editMode ? (
-                      <Input
-                        value={profileForm.phone ?? ""}
-                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                        placeholder="Enter phone number"
-                        className="w-full"
-                      />
+                      <>
+                        <Input
+                          id="phone"
+                          name="phone"
+                          value={profileForm.phone ?? ""}
+                          onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                          placeholder="Enter phone number"
+                          className={`w-full ${validationErrors.phone ? 'border-red-500' : ''}`}
+                        />
+                        {validationErrors.phone && (
+                          <p className="text-xs text-red-600 mt-1">{validationErrors.phone}</p>
+                        )}
+                      </>
                     ) : (
                       <p className="text-neutral-700 font-medium">
                         {student?.phone ?? "—"}
@@ -582,9 +660,11 @@ export function StudentProfile() {
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-neutral-600 block mb-2">Club Branch</label>
+                    <label htmlFor="club_branch" className="text-xs font-semibold text-neutral-600 block mb-2">Club Branch</label>
                     {editMode ? (
                       <Input
+                        id="club_branch"
+                        name="club_branch"
                         value={profileForm.club_branch ?? ""}
                         onChange={(e) => setProfileForm({ ...profileForm, club_branch: e.target.value })}
                         placeholder="Enter branch"
@@ -608,18 +688,62 @@ export function StudentProfile() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-semibold text-neutral-600 block mb-2">Birth Date</label>
+                      <label htmlFor="birth_date" className="text-xs font-semibold text-neutral-600 block mb-2">Birth Date</label>
+                    {editMode && canEdit ? (
+                      <Input
+                        id="birth_date"
+                        name="birth_date"
+                        type="date"
+                        value={student?.personal_info?.birth_date ?? ""}
+                        onChange={(e) => setStudent(student ? {
+                          ...student,
+                          personal_info: { ...student.personal_info, birth_date: e.target.value }
+                        } : null)}
+                        className="w-full"
+                      />
+                    ) : (
                       <p className="text-neutral-700 font-medium">{student?.personal_info?.birth_date ?? "—"}</p>
+                    )}
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-neutral-600 block mb-2">Height</label>
+                    <label htmlFor="height" className="text-xs font-semibold text-neutral-600 block mb-2">Height (cm)</label>
+                    {editMode && canEdit ? (
+                      <Input
+                        id="height"
+                        name="height"
+                        type="number"
+                        value={student?.personal_info?.height ?? ""}
+                        onChange={(e) => setStudent(student ? {
+                          ...student,
+                          personal_info: { ...student.personal_info, height: e.target.value }
+                        } : null)}
+                        placeholder="Height in cm"
+                        className="w-full"
+                      />
+                    ) : (
                       <p className="text-neutral-700 font-medium">{student?.personal_info?.height ? `${student.personal_info.height} cm` : "—"}</p>
+                    )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-xs font-semibold text-neutral-600 block mb-2">Weight</label>
+                    <label htmlFor="weight" className="text-xs font-semibold text-neutral-600 block mb-2">Weight (kg)</label>
+                    {editMode && canEdit ? (
+                      <Input
+                        id="weight"
+                        name="weight"
+                        type="number"
+                        value={student?.personal_info?.weight ?? ""}
+                        onChange={(e) => setStudent(student ? {
+                          ...student,
+                          personal_info: { ...student.personal_info, weight: e.target.value }
+                        } : null)}
+                        placeholder="Weight in kg"
+                        className="w-full"
+                      />
+                    ) : (
                       <p className="text-neutral-700 font-medium">{student?.personal_info?.weight ? `${student.personal_info.weight} kg` : "—"}</p>
+                    )}
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-neutral-600 block mb-2">Student ID</label>
