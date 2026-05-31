@@ -558,7 +558,9 @@ class PoseEvaluationService:
 
     def parse_uploaded_video(self, uploaded_file) -> Optional[str]:
         raw_bytes = uploaded_file.read()
-        suffix = os.path.splitext(uploaded_file.name)[1] or '.mp4'
+        # Handle cases where uploaded_file might not have a name attribute or it's None
+        filename = getattr(uploaded_file, 'name', None) or 'video.mp4'
+        suffix = os.path.splitext(filename)[1] or '.mp4'
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
         temp_file.write(raw_bytes)
         temp_file.close()
@@ -571,6 +573,9 @@ class PoseEvaluationService:
                 message = f"{message} {self.pose_init_error}"
             raise ValueError(message)
 
+        # Preserve filename for error messages and file type detection
+        original_filename = getattr(uploaded_file, 'name', 'unknown_file')
+        
         landmarks = None
         media_bytes = uploaded_file.read()
         try:
@@ -596,6 +601,9 @@ class PoseEvaluationService:
             except OSError:
                 pass
 
+        if landmarks is None:
+            raise ValueError(f"Could not extract pose landmarks from {original_filename}. Please ensure the file contains a clear view of a person's full body.")
+
         logging.info(f"Extracted {len(landmarks)} landmarks for template {stance_label}")
         landmark_vector = self._landmarks_to_vector(landmarks).tolist()
         template = PoseTemplate(stance_label=stance_label, uploaded_by=uploaded_by, landmarks=landmarks)  # store as list of dicts
@@ -616,119 +624,144 @@ class PoseEvaluationService:
                 message = f"{message} {self.pose_init_error}"
             raise ValueError(message)
 
+        # Validate file size (max 500 MB)
+        MAX_FILE_SIZE = 500 * 1024 * 1024
         raw_bytes = uploaded_file.read()
-        extension = os.path.splitext(uploaded_file.name)[1].lower()
+        if len(raw_bytes) > MAX_FILE_SIZE:
+            raise ValueError('File size exceeds 500 MB limit.')
+        if len(raw_bytes) == 0:
+            raise ValueError('Uploaded file is empty.')
+
+        # Get filename safely
+        filename = getattr(uploaded_file, 'name', 'media_file')
+        extension = os.path.splitext(filename)[1].lower() or '.mp4'
         is_video = extension in {'.mp4', '.mov', '.avi', '.mkv', '.webm'}
 
         frames = []
         temp_video_path = None
 
-        if is_video:
-            temp_video_path = tempfile.NamedTemporaryFile(delete=False, suffix=extension).name
-            with open(temp_video_path, 'wb') as f:
-                f.write(raw_bytes)
-            cap = cv2.VideoCapture(temp_video_path)
-            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
-            fps = cap.get(cv2.CAP_PROP_FPS) or 1
-            step = max(1, int(fps))
-            index = 0
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                if index % step == 0:
-                    frames.append(frame)
-                index += 1
-            cap.release()
-            if os.path.exists(temp_video_path):
+        try:
+            if is_video:
+                temp_video_path = tempfile.NamedTemporaryFile(delete=False, suffix=extension).name
+                with open(temp_video_path, 'wb') as f:
+                    f.write(raw_bytes)
+                cap = cv2.VideoCapture(temp_video_path)
+                if not cap.isOpened():
+                    raise ValueError(f'Unable to open video file: {filename}')
+                
+                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+                if frame_count == 0:
+                    raise ValueError('Video file appears to be corrupted or empty.')
+                
+                fps = cap.get(cv2.CAP_PROP_FPS) or 1
+                step = max(1, int(fps))
+                
+                index = 0
+                while cap.isOpened() and len(frames) < 300:  # Limit to 300 frames max
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    if index % step == 0:
+                        frames.append(frame)
+                    index += 1
+                cap.release()
+            else:
+                image = cv2.imdecode(np.frombuffer(raw_bytes, np.uint8), cv2.IMREAD_COLOR)
+                if image is None:
+                    raise ValueError(f'Unable to decode image file: {filename}. Ensure it is a valid image format.')
+                if image.size == 0:
+                    raise ValueError('Image file is corrupted or has invalid dimensions.')
+                frames.append(image)
+
+            if not frames:
+                raise ValueError('Unable to parse the uploaded media for pose extraction.')
+
+            target_landmarks = None
+            if target_stance:
+                try:
+                    template = PoseTemplate.objects.filter(stance_label=target_stance).first()
+                    if template and template.landmarks:
+                        target_landmarks = template.landmarks
+                except Exception:
+                    pass
+
+            frame_results = []
+            for idx, frame in enumerate(frames):
+                landmarks = self.extract_pose_landmarks(frame)
+                if landmarks is None:
+                    continue
+                label, confidence = self.classify_landmarks(landmarks)
+                frame_results.append({
+                    'frame_index': idx,
+                    'stance_type': label,
+                    'confidence': float(round(confidence, 2)),
+                    'timestamp': idx / (len(frames) - 1) if len(frames) > 1 else 0,
+                })
+
+            if not frame_results:
+                raise ValueError('No valid pose landmarks were detected in the media.')
+
+            # Group by stance type and calculate statistics
+            from collections import defaultdict
+            stance_stats = defaultdict(list)
+
+            for result in frame_results:
+                stance_stats[result['stance_type']].append(result)
+
+            # Create chronological list of detected stances
+            detected_stances = []
+            seen_stances = set()
+
+            for result in frame_results:
+                stance = result['stance_type']
+                if stance not in seen_stances:
+                    seen_stances.add(stance)
+                    stance_frames = stance_stats[stance]
+                    avg_confidence = sum(f['confidence'] for f in stance_frames) / len(stance_frames)
+                    first_appearance = min(f['frame_index'] for f in stance_frames)
+                    duration_frames = len(stance_frames)
+
+                    detected_stances.append({
+                        'stance_type': stance,
+                        'score': int(min(100, max(0, round(avg_confidence * 100)))),
+                        'confidence': float(round(avg_confidence, 2)),
+                        'first_frame': first_appearance,
+                        'frame_count': duration_frames,
+                        'duration_ratio': duration_frames / len(frame_results),
+                    })
+
+            # Sort by first appearance (chronological order)
+            detected_stances.sort(key=lambda x: x['first_frame'])
+
+            # Overall analysis
+            total_frames = len(frame_results)
+            primary_stance = detected_stances[0]['stance_type'] if detected_stances else 'Unknown Stance'
+            overall_score = detected_stances[0]['score'] if detected_stances else 0
+
+            remarks = f"Analyzed {total_frames} frames across {len(detected_stances)} unique stance(s). Primary: {primary_stance}."
+
+            analysis_details = {
+                'detected_stances': detected_stances,
+                'total_frames_analyzed': total_frames,
+                'frames_with_pose': len(frame_results),
+                'frame_results': frame_results,
+                'evaluation_source': 'TensorFlow MediaPipe Pose Analysis with YOLO cropping',
+            }
+
+            logging.info(f'Pose analysis completed for student {student_id}: {len(detected_stances)} stances, score {overall_score}')
+            
+            return {
+                'student_id': student_id,
+                'stance_type': primary_stance,
+                'score': overall_score,
+                'remarks': remarks,
+                'analysis_details': analysis_details,
+            }
+        
+        finally:
+            # Cleanup temp video file
+            if temp_video_path and os.path.exists(temp_video_path):
                 try:
                     os.remove(temp_video_path)
                 except OSError:
                     pass
-        else:
-            image = cv2.imdecode(np.frombuffer(raw_bytes, np.uint8), cv2.IMREAD_COLOR)
-            if image is not None:
-                frames.append(image)
-
-        if not frames:
-            raise ValueError('Unable to parse the uploaded media for pose extraction.')
-
-        target_landmarks = None
-        if target_stance:
-            try:
-                template = PoseTemplate.objects.filter(stance_label=target_stance).first()
-                if template and template.landmarks:
-                    target_landmarks = template.landmarks
-            except Exception:
-                pass
-
-        frame_results = []
-        for idx, frame in enumerate(frames):
-            landmarks = self.extract_pose_landmarks(frame)
-            if landmarks is None:
-                continue
-            label, confidence = self.classify_landmarks(landmarks)
-            frame_results.append({
-                'frame_index': idx,
-                'stance_type': label,
-                'confidence': float(round(confidence, 2)),
-                'timestamp': idx / (len(frames) - 1) if len(frames) > 1 else 0,  # normalized timestamp
-            })
-
-        if not frame_results:
-            raise ValueError('No valid pose landmarks were detected in the media.')
-
-        # Group by stance type and calculate statistics
-        from collections import defaultdict
-        stance_stats = defaultdict(list)
-
-        for result in frame_results:
-            stance_stats[result['stance_type']].append(result)
-
-        # Create chronological list of detected stances
-        detected_stances = []
-        seen_stances = set()
-
-        for result in frame_results:
-            stance = result['stance_type']
-            if stance not in seen_stances:
-                seen_stances.add(stance)
-                stance_frames = stance_stats[stance]
-                avg_confidence = sum(f['confidence'] for f in stance_frames) / len(stance_frames)
-                first_appearance = min(f['frame_index'] for f in stance_frames)
-                duration_frames = len(stance_frames)
-
-                detected_stances.append({
-                    'stance_type': stance,
-                    'score': int(min(100, max(0, round(avg_confidence * 100)))),
-                    'confidence': float(round(avg_confidence, 2)),
-                    'first_frame': first_appearance,
-                    'frame_count': duration_frames,
-                    'duration_ratio': duration_frames / len(frame_results),
-                })
-
-        # Sort by first appearance (chronological order)
-        detected_stances.sort(key=lambda x: x['first_frame'])
-
-        # Overall analysis
-        total_frames = len(frame_results)
-        primary_stance = detected_stances[0]['stance_type'] if detected_stances else 'Unknown Stance'
-        overall_score = detected_stances[0]['score'] if detected_stances else 0
-
-        remarks = f"Detected {len(detected_stances)} unique stance(s). Primary stance: {primary_stance}."
-
-        analysis_details = {
-            'detected_stances': detected_stances,
-            'total_frames_analyzed': total_frames,
-            'frames_with_pose': len(frame_results),
-            'frame_results': frame_results,
-            'evaluation_source': 'TensorFlow MediaPipe Pose Analysis with YOLO cropping',
-        }
-
-        return {
-            'student_id': student_id,
-            'stance_type': primary_stance,  # Keep for backward compatibility
-            'score': overall_score,  # Keep for backward compatibility
-            'remarks': remarks,
-            'analysis_details': analysis_details,
-        }

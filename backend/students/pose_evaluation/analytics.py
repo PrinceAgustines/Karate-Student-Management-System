@@ -135,6 +135,15 @@ class PoseAnalyticsService:
         
         accuracies = [data['accuracy'] for data in trend_info['trend_data']]
         
+        # Need at least 2 points for linear regression
+        if len(accuracies) < 2:
+            return {
+                'projected_accuracy': accuracies[0] if accuracies else 0,
+                'confidence': 50,
+                'projection_basis': 'insufficient_data_for_projection',
+                'current_trajectory': 0,
+            }
+        
         # Linear regression projection
         x = np.arange(len(accuracies))
         y = np.array(accuracies)
@@ -150,13 +159,13 @@ class PoseAnalyticsService:
         
         # Confidence is based on consistency of data
         consistency = 100 - int(np.std(accuracies))  # Lower std = higher confidence
-        consistency = np.clip(consistency, 10, 95)
+        consistency = int(np.clip(consistency, 10, 95))  # Ensure it's a Python int
         
         return {
             'projected_accuracy': projected_accuracy,
-            'confidence': consistency,
+            'confidence': int(consistency),  # Ensure it's a Python int
             'projection_basis': 'linear_regression',
-            'current_trajectory': trend_info['improvement_rate'],
+            'current_trajectory': int(trend_info['improvement_rate']),  # Ensure it's a Python int
         }
 
     @staticmethod
