@@ -1,4 +1,5 @@
-import { LucideIcon, TrendingUp, TrendingDown } from "lucide-react";
+import { LucideIcon, TrendingUp, TrendingDown, Info } from "lucide-react";
+import { useState } from "react";
 
 interface KPICardProps {
   title: string;
@@ -7,6 +8,7 @@ interface KPICardProps {
   icon?: LucideIcon;
   trend?: number; // percentage change
   description?: string;
+  help?: string; // Tooltip text explaining the metric
   color?: "blue" | "green" | "red" | "purple" | "yellow" | "orange";
   size?: "sm" | "md" | "lg";
 }
@@ -78,25 +80,50 @@ export function KPICard({
   icon: Icon,
   trend,
   description,
+  help,
   color = "blue",
   size = "md",
 }: KPICardProps) {
+  const [showHelp, setShowHelp] = useState(false);
   const colors = colorClasses[color];
   const sizes = sizeClasses[size];
 
   return (
     <div
-      className={`${colors.bg} ${colors.border} border rounded-lg ${sizes.padding} flex flex-col h-full`}
+      className={`${colors.bg} ${colors.border} border rounded-lg ${sizes.padding} flex flex-col h-full relative group`}
+      role="article"
+      aria-label={`${title}: ${value}${unit ? ` ${unit}` : ""}`}
     >
       <div className="flex items-start justify-between mb-3">
         <h3 className={`${sizes.titleSize} font-semibold text-neutral-700 flex-1`}>
           {title}
         </h3>
-        {Icon && (
-          <div className={`${colors.icon} p-2 rounded-lg ml-2`}>
-            <Icon className={`${sizes.iconSize}`} />
-          </div>
-        )}
+        <div className="flex items-center gap-1">
+          {Icon && (
+            <div className={`${colors.icon} p-2 rounded-lg`}>
+              <Icon className={`${sizes.iconSize}`} />
+            </div>
+          )}
+          {help && (
+            <div className="relative">
+              <button
+                className="p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                onMouseEnter={() => setShowHelp(true)}
+                onMouseLeave={() => setShowHelp(false)}
+                aria-label={`More information about ${title}`}
+                title="Click for more information"
+              >
+                <Info className="h-4 w-4 text-neutral-600" />
+              </button>
+              {showHelp && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-neutral-900 text-white text-xs rounded-lg p-3 z-50 shadow-lg">
+                  {help}
+                  <div className="absolute -top-1 right-2 w-2 h-2 bg-neutral-900 transform rotate-45" />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex items-baseline gap-2 mb-2">
