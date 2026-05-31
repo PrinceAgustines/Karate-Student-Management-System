@@ -9,5 +9,6 @@ urlpatterns = [
     path('api/students/', include('students.urls')),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve media files during development and local testing.
+# This ensures inventory images uploaded to MEDIA_ROOT are accessible at /media/.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
