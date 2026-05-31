@@ -25,6 +25,7 @@ from .models import (
     KataRating,
     KumiteRating,
     Match,
+    SparringMatch,
     Notification,
     Order,
     OrderItem,
@@ -59,6 +60,7 @@ from .serializers import (
     StudentRegistrationSerializer,
     StudentSerializer,
     SessionSerializer,
+    SparringMatchSerializer,
     StanceEvaluationSerializer,
     SystemIDSerializer,
 )
@@ -82,22 +84,6 @@ class IsAuthenticatedInventoryManager(permissions.BasePermission):
             return True
 
         return getattr(request.user, "role", None) in {"admin", "instructor"}
-
-
-class IsAdminOrInstructor(permissions.BasePermission):
-    """Permission class to allow only authenticated admins/instructors to create/update/delete."""
-    
-    def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        
-        # Allow reading for all authenticated users
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        
-        # Only allow create/update/delete for admins and instructors
-        user_role = getattr(request.user, "role", None)
-        return user_role in {"admin", "instructor", "Admin", "Instructor"}
 
 
 class VerifySystemIDView(APIView):
@@ -590,6 +576,12 @@ class SessionViewSet(viewsets.ModelViewSet):
             )
 
 
+class SparringMatchViewSet(viewsets.ModelViewSet):
+    queryset = SparringMatch.objects.all()
+    serializer_class = SparringMatchSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
 class AttendanceViewSet(viewsets.ModelViewSet):
     queryset = Attendance.objects.all()
     serializer_class = AttendanceSerializer
@@ -599,7 +591,7 @@ class AttendanceViewSet(viewsets.ModelViewSet):
 class StanceEvaluationViewSet(viewsets.ModelViewSet):
     queryset = StanceEvaluation.objects.all().order_by('-date_evaluated')
     serializer_class = StanceEvaluationSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
+    permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def __init__(self, *args, **kwargs):
@@ -758,26 +750,13 @@ class PoseTemplateViewSet(viewsets.ModelViewSet):
 class InstructorRatingViewSet(viewsets.ModelViewSet):
     queryset = InstructorRating.objects.all()
     serializer_class = InstructorRatingSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
-
-    def get_queryset(self):
-        queryset = super().get_queryset().order_by('-date_evaluated')
-        student_id = self.request.query_params.get('student_id')
-        if student_id:
-            queryset = queryset.filter(student__student_id=student_id)
-        
-        date_from = self.request.query_params.get('date_from')
-        date_to = self.request.query_params.get('date_to')
-        if date_from and date_to:
-            queryset = queryset.filter(date_evaluated__range=(date_from, date_to))
-        
-        return queryset
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class KataRatingViewSet(viewsets.ModelViewSet):
     queryset = KataRating.objects.all().order_by('-date_recorded')
     serializer_class = KataRatingSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 
@@ -815,7 +794,7 @@ class KataRatingViewSet(viewsets.ModelViewSet):
 class KumiteRatingViewSet(viewsets.ModelViewSet):
     queryset = KumiteRating.objects.all().order_by('-date_recorded')
     serializer_class = KumiteRatingSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 
@@ -849,7 +828,7 @@ class KumiteRatingViewSet(viewsets.ModelViewSet):
 class PerformanceSummaryViewSet(viewsets.ModelViewSet):
     queryset = PerformanceSummary.objects.all().order_by('-generated_at')
     serializer_class = PerformanceSummarySerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -900,7 +879,7 @@ class PerformanceSummaryViewSet(viewsets.ModelViewSet):
 class BeltProgressionIndicatorViewSet(viewsets.ModelViewSet):
     queryset = BeltProgressionIndicator.objects.all().order_by('-last_assessment_date')
     serializer_class = BeltProgressionIndicatorSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
+    permission_classes = [permissions.IsAuthenticated]
 
     def perform_update(self, serializer):
         old_status = self.get_object().readiness_status
@@ -989,7 +968,7 @@ class BeltProgressionIndicatorViewSet(viewsets.ModelViewSet):
 class ProgressionInsightViewSet(viewsets.ModelViewSet):
     queryset = ProgressionInsight.objects.all().order_by('-generated_at')
     serializer_class = ProgressionInsightSerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrInstructor]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()

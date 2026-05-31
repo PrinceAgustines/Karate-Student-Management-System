@@ -18,6 +18,7 @@ from .views import (
     NotificationViewSet,
     PoseTemplateViewSet,
     SessionViewSet,
+    SparringMatchViewSet,
     StanceEvaluationViewSet,
     StudentRegistrationView,
     StudentViewSet,
@@ -37,6 +38,7 @@ router.register(r'kumite-ratings', KumiteRatingViewSet)
 router.register(r'performance-summaries', PerformanceSummaryViewSet)
 router.register(r'belt-progression-indicators', BeltProgressionIndicatorViewSet)
 router.register(r'progression-insights', ProgressionInsightViewSet)
+router.register(r'sparring-matches', SparringMatchViewSet)
 router.register(r'inventories', InventoryViewSet)
 router.register(r'notifications', NotificationViewSet)
 router.register(r'parent-students', ParentStudentViewSet)

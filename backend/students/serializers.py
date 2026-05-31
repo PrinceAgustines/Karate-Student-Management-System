@@ -23,6 +23,7 @@ from .models import (
     PersonalInfo,
     PoseTemplate,
     Session,
+    SparringMatch,
     StanceEvaluation,
     Student,
     StudentBadge,
@@ -722,3 +723,61 @@ class OrderCreateSerializer(serializers.Serializer):
         if not value or len(value) < 7:
             raise serializers.ValidationError('Please provide a valid contact number.')
         return value
+
+
+class SparringMatchSerializer(serializers.ModelSerializer):
+    student_a_name = serializers.SerializerMethodField()
+    student_b_name = serializers.SerializerMethodField()
+    student_a_belt = serializers.CharField(source='student_a.current_belt_rank', read_only=True)
+    student_b_belt = serializers.CharField(source='student_b.current_belt_rank', read_only=True)
+    student_a_gender = serializers.CharField(source='student_a.gender', read_only=True)
+    student_b_gender = serializers.CharField(source='student_b.gender', read_only=True)
+    winner_name = serializers.SerializerMethodField()
+    instructor_name = serializers.CharField(source='instructor.get_full_name', read_only=True, allow_blank=True)
+
+    class Meta:
+        model = SparringMatch
+        fields = [
+            'match_id',
+            'student_a',
+            'student_a_name',
+            'student_a_belt',
+            'student_a_gender',
+            'student_b',
+            'student_b_name',
+            'student_b_belt',
+            'student_b_gender',
+            'status',
+            'matchmaking_type',
+            'score_a',
+            'score_b',
+            'duration_minutes',
+            'match_date',
+            'match_time',
+            'created_at',
+            'updated_at',
+            'started_at',
+            'completed_at',
+            'height_diff',
+            'weight_diff',
+            'age_diff',
+            'belt_diff',
+            'same_sex',
+            'instructor',
+            'instructor_name',
+            'notes',
+            'winner_name',
+        ]
+        read_only_fields = ['match_id', 'created_at', 'updated_at', 'height_diff', 'weight_diff', 'age_diff', 'belt_diff', 'same_sex']
+
+    def get_student_a_name(self, obj):
+        return f"{obj.student_a.first_name} {obj.student_a.last_name}"
+
+    def get_student_b_name(self, obj):
+        return f"{obj.student_b.first_name} {obj.student_b.last_name}"
+
+    def get_winner_name(self, obj):
+        winner = obj.get_winner()
+        if winner:
+            return f"{winner.first_name} {winner.last_name}"
+        return None

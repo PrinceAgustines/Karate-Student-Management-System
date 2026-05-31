@@ -284,11 +284,84 @@ class Match(models.Model):
         return f"Match {self.id} - {self.student_a} vs {self.student_b}"
 
 
+class SparringMatch(models.Model):
+    match_id = models.AutoField(primary_key=True)
+    status = models.CharField(
+        max_length=32,
+        choices=[
+            ('scheduled', 'Scheduled'),
+            ('in_progress', 'In Progress'),
+            ('completed', 'Completed'),
+            ('cancelled', 'Cancelled'),
+        ],
+        default='scheduled',
+    )
+    matchmaking_type = models.CharField(
+        max_length=32,
+        choices=[
+            ('automated', 'Automated'),
+            ('manual', 'Manual'),
+        ],
+        default='manual',
+    )
+    score_a = models.IntegerField(default=0)
+    score_b = models.IntegerField(default=0)
+    duration_minutes = models.IntegerField(default=2)
+    match_date = models.DateField()
+    match_time = models.TimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    height_diff = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    weight_diff = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    age_diff = models.IntegerField(blank=True, null=True)
+    belt_diff = models.IntegerField(blank=True, null=True)
+    same_sex = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    instructor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='sparring_matches_managed',
+    )
+    student_a = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='sparring_matches_as_a',
+    )
+    student_b = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='sparring_matches_as_b',
+    )
+
+    class Meta:
+        ordering = ['-match_date', '-created_at']
+        indexes = [
+            models.Index(fields=['match_date', 'status'], name='students_sp_match_d_9e7381_idx'),
+            models.Index(fields=['student_a', 'match_date'], name='students_sp_student_31aef3_idx'),
+            models.Index(fields=['student_b', 'match_date'], name='students_sp_student_312a29_idx'),
+            models.Index(fields=['status'], name='students_sp_status_91684f_idx'),
+        ]
+
+    def __str__(self):
+        return f"SparringMatch {self.match_id} - {self.student_a} vs {self.student_b}"
+
+    def get_winner(self):
+        if self.score_a > self.score_b:
+            return self.student_a
+        if self.score_b > self.score_a:
+            return self.student_b
+        return None
+
+
 class InstructorRating(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='instructor_ratings')
-    kata_score = models.IntegerField(null=True, blank=True)
-    kumite_score = models.IntegerField(null=True, blank=True)
-    discipline_score = models.IntegerField(null=True, blank=True)
+    kata_score = models.IntegerField()
+    kumite_score = models.IntegerField()
+    discipline_score = models.IntegerField()
     remarks = models.TextField(blank=True)
     date_evaluated = models.DateField()
 
@@ -633,109 +706,6 @@ class ParentStudent(models.Model):
         ('guardian', 'Guardian'),
         ('other', 'Other'),
     ], default='guardian')
-
-
-# Signal handlers to update ratings when InstructorRating is created/updated
-from django.db.models.signals import post_save, post_delete
-from django.dispatch import receiver
-from django.db import transaction
-import logging
-
-logger = logging.getLogger(__name__)
-
-@receiver(post_save, sender=InstructorRating)
-def update_instructor_rating_averages(sender, instance, created, **kwargs):
-    """Update KataRating and KumiteRating with average instructor scores"""
-    try:
-        student = instance.student
-        from django.db.models import Avg
-        
-        # Only process if this record has at least one score
-        if not any([instance.kata_score, instance.kumite_score, instance.discipline_score]):
-            return
-        
-        # Calculate Kata average if this rating has a kata score
-        if instance.kata_score is not None:
-            kata_avg = InstructorRating.objects.filter(
-                student=student, kata_score__isnull=False
-            ).aggregate(avg=Avg('kata_score'))['avg']
-            
-            # Use get_or_create to ensure KataRating exists, then update it with raw update to avoid signal loops
-            try:
-                KataRating.objects.filter(student=student).update(instructor_kata_score=kata_avg or 0.0)
-                # Recalculate combined score
-                kata_rating = KataRating.objects.get(student=student)
-                combined = (kata_rating.pose_evaluation_avg + (kata_avg or 0.0)) / 2
-                KataRating.objects.filter(student=student).update(combined_kata_score=combined)
-            except KataRating.DoesNotExist:
-                pass
-        
-        # Calculate Kumite average if this rating has a kumite score
-        if instance.kumite_score is not None:
-            kumite_avg = InstructorRating.objects.filter(
-                student=student, kumite_score__isnull=False
-            ).aggregate(avg=Avg('kumite_score'))['avg']
-            
-            # Use raw update to avoid signal loops
-            try:
-                KumiteRating.objects.filter(student=student).update(instructor_kumite_score=kumite_avg or 0.0)
-                # Recalculate combined score
-                kumite_rating = KumiteRating.objects.get(student=student)
-                combined = (kumite_rating.match_avg_score + (kumite_avg or 0.0)) / 2
-                KumiteRating.objects.filter(student=student).update(combined_kumite_score=combined)
-            except KumiteRating.DoesNotExist:
-                pass
-                
-    except Exception as e:
-        logger.error(f"Error updating instructor rating averages: {str(e)}", exc_info=True)
-
-@receiver(post_delete, sender=InstructorRating)
-def update_instructor_rating_averages_on_delete(sender, instance, **kwargs):
-    """Update ratings when InstructorRating is deleted"""
-    try:
-        student = instance.student
-        from django.db.models import Avg
-        
-        # Recalculate Kata average
-        kata_avg = InstructorRating.objects.filter(
-            student=student, kata_score__isnull=False
-        ).aggregate(avg=Avg('kata_score'))['avg']
-        
-        try:
-            if kata_avg is not None:
-                KataRating.objects.filter(student=student).update(instructor_kata_score=kata_avg)
-                kata_rating = KataRating.objects.get(student=student)
-                combined = (kata_rating.pose_evaluation_avg + kata_avg) / 2
-                KataRating.objects.filter(student=student).update(combined_kata_score=combined)
-            else:
-                KataRating.objects.filter(student=student).update(
-                    instructor_kata_score=0.0,
-                    combined_kata_score=KataRating.objects.filter(student=student).values('pose_evaluation_avg').first()['pose_evaluation_avg'] if KataRating.objects.filter(student=student).exists() else 0.0
-                )
-        except KataRating.DoesNotExist:
-            pass
-        
-        # Recalculate Kumite average
-        kumite_avg = InstructorRating.objects.filter(
-            student=student, kumite_score__isnull=False
-        ).aggregate(avg=Avg('kumite_score'))['avg']
-        
-        try:
-            if kumite_avg is not None:
-                KumiteRating.objects.filter(student=student).update(instructor_kumite_score=kumite_avg)
-                kumite_rating = KumiteRating.objects.get(student=student)
-                combined = (kumite_rating.match_avg_score + kumite_avg) / 2
-                KumiteRating.objects.filter(student=student).update(combined_kumite_score=combined)
-            else:
-                KumiteRating.objects.filter(student=student).update(
-                    instructor_kumite_score=0.0,
-                    combined_kumite_score=KumiteRating.objects.filter(student=student).values('match_avg_score').first()['match_avg_score'] if KumiteRating.objects.filter(student=student).exists() else 0.0
-                )
-        except KumiteRating.DoesNotExist:
-            pass
-            
-    except Exception as e:
-        logger.error(f"Error updating instructor rating averages on delete: {str(e)}", exc_info=True)
     is_primary_contact = models.BooleanField(default=False)
     added_at = models.DateTimeField(auto_now_add=True)
     added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='added_parent_relationships')
