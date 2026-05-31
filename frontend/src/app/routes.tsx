@@ -32,6 +32,7 @@ import { PoseEvaluation } from "./components/pages/performance/PoseEvaluation";
 import { StanceEvaluations } from "./components/pages/performance/StanceEvaluations";
 import { InstructorRatings } from "./components/pages/performance/InstructorRatings";
 import { StudentEvaluationDashboard } from "./components/pages/performance/StudentEvaluationDashboard";
+import { SparringPage } from "./components/pages/performance/SparringPage";
 
 // Analytics
 import { ProgressionDashboard } from "./components/pages/analytics/ProgressionDashboard";
@@ -45,6 +46,8 @@ import { GamificationDashboard } from "./components/pages/gamification/Gamificat
 // Inventory & Schedule
 import { InventoryManagement } from "./components/pages/inventory/InventoryManagement";
 import { ShopPage } from "./components/pages/inventory/ShopPage";
+import { ShoppingCart } from "./components/pages/inventory/ShoppingCart";
+import { Checkout } from "./components/pages/inventory/Checkout";
 import { DojoSchedule } from "./components/pages/schedule/DojoSchedule";
 
 // Children
@@ -90,12 +93,15 @@ export const router = createBrowserRouter([
           { path: "performance/pose", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><PoseEvaluation /></RoleGuard> },
           { path: "performance/stances", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><StanceEvaluations /></RoleGuard> },
           { path: "performance/ratings", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><InstructorRatings /></RoleGuard> },
+          { path: "performance/sparring", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><SparringPage /></RoleGuard> },
           { path: "analytics/progression", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><ProgressionDashboard /></RoleGuard> },
           { path: "analytics/attendance", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><AttendanceTrends /></RoleGuard> },
           { path: "analytics/performance", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><PerformanceSummary /></RoleGuard> },
           { path: "analytics/reports", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><ReportsGenerator /></RoleGuard> },
           { path: "gamification", Component: () => <RoleGuard allowedRoles={["admin", "instructor", "student", "parent"]}><GamificationDashboard /></RoleGuard> },
           { path: "shop", Component: () => <RoleGuard allowedRoles={["admin", "instructor", "student", "parent"]}><ShopPage /></RoleGuard> },
+          { path: "cart", Component: () => <RoleGuard allowedRoles={["admin", "instructor", "student", "parent"]}><ShoppingCart /></RoleGuard> },
+          { path: "checkout", Component: () => <RoleGuard allowedRoles={["admin", "instructor", "student", "parent"]}><Checkout /></RoleGuard> },
           { path: "inventory", Component: () => <RoleGuard allowedRoles={["admin", "instructor", "student", "parent"]}><InventoryManagement /></RoleGuard> },
           { path: "schedule", Component: () => <RoleGuard allowedRoles={["admin", "instructor", "student", "parent"]}><DojoSchedule /></RoleGuard> },
           { path: "children", Component: () => <RoleGuard allowedRoles={["parent"]}><ChildrenPage /></RoleGuard> },
