@@ -170,21 +170,32 @@ export function FaceSelectionCanvas({
     const scaleX = imageDimensions.originalWidth > 0 ? canvas.width / imageDimensions.originalWidth : 1;
     const scaleY = imageDimensions.originalHeight > 0 ? canvas.height / imageDimensions.originalHeight : 1;
 
-    // Find clicked face
-    const clickedFace = faces.find((face) => {
+    // Find the MOST ACCURATE clicked face (smallest/closest, not first match)
+    let clickedFace = null;
+    let smallestArea = Infinity;
+
+    for (const face of faces) {
       const [faceX, faceY, faceWidth, faceHeight] = face.bounding_box;
       const scaledX = faceX * scaleX;
       const scaledY = faceY * scaleY;
       const scaledWidth = faceWidth * scaleX;
       const scaledHeight = faceHeight * scaleY;
 
-      return (
+      // Check if click is within this face's bounds
+      if (
         x >= scaledX &&
         x <= scaledX + scaledWidth &&
         y >= scaledY &&
         y <= scaledY + scaledHeight
-      );
-    });
+      ) {
+        // Calculate face area to find the most precise match
+        const area = scaledWidth * scaledHeight;
+        if (area < smallestArea) {
+          smallestArea = area;
+          clickedFace = face;
+        }
+      }
+    }
 
     if (clickedFace) {
       setSelectedFaceIndex(clickedFace.face_index);
@@ -221,19 +232,19 @@ export function FaceSelectionCanvas({
         </h3>
         <div className="flex gap-4 text-sm">
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-red-500 rounded"></div>
+            <div className="w-4 h-4 bg-primary rounded"></div>
             <span>Unassigned</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-blue-500 rounded"></div>
+            <div className="w-4 h-4 bg-info rounded"></div>
             <span>Selected</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-green-500 rounded"></div>
+            <div className="w-4 h-4 bg-success rounded"></div>
             <span>Assigned</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 bg-amber-400 rounded"></div>
+            <div className="w-4 h-4 bg-warning rounded"></div>
             <span>Skipped</span>
           </div>
         </div>
@@ -260,16 +271,16 @@ export function FaceSelectionCanvas({
 
       {/* Face Assignment Panel */}
       {selectedFaceIndex !== null && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-info/10 border border-info/30 rounded-lg p-4">
           <div className="flex items-center gap-3 mb-3">
-            <User className="h-5 w-5 text-blue-600" />
-            <h4 className="font-medium text-blue-900">
+            <User className="h-5 w-5 text-info" />
+            <h4 className="font-medium text-info-foreground">
               Face #{selectedFaceIndex + 1} - Select Student or Skip
             </h4>
           </div>
 
           <div className="flex-1">
-            <label className="text-sm font-medium text-blue-800 mb-2 block">
+            <label className="text-sm font-medium text-info mb-2 block">
               Select Student
             </label>
             <Select onValueChange={handleStudentAssignment}>
@@ -308,15 +319,15 @@ export function FaceSelectionCanvas({
 
       {/* Assignment Summary */}
       {assignedCount > 0 && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <h4 className="font-medium text-green-900 mb-2">Assigned Faces</h4>
+        <div className="bg-success/10 border border-success/30 rounded-lg p-4">
+          <h4 className="font-medium text-success-foreground mb-2">Assigned Faces</h4>
           <div className="space-y-1">
             {Object.entries(assignments).map(([faceIndex, studentId]) => {
               if (studentId === -1) return null; // Skip "guest" entries in display
               const student = students.find(s => s.id === studentId);
               return (
                 <div key={faceIndex} className="flex items-center gap-2 text-sm">
-                  <Check className="h-4 w-4 text-green-600" />
+                  <Check className="h-4 w-4 text-success" />
                   <span>Face #{parseInt(faceIndex) + 1} → {student?.name}</span>
                 </div>
               );

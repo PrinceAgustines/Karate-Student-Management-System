@@ -157,7 +157,7 @@ export function ParentDashboard() {
   if (error) {
     return (
       <div className="min-h-[360px] flex items-center justify-center p-6">
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-red-700 shadow-sm">
+        <div className="rounded-3xl border border-primary/30 bg-primary/10 p-8 text-primary shadow-sm">
           <h2 className="text-2xl font-semibold mb-2">Something went wrong</h2>
           <p className="text-sm">{error}</p>
         </div>
@@ -170,7 +170,7 @@ export function ParentDashboard() {
       <div className="space-y-8">
         <div className="rounded-3xl border border-neutral-200 bg-white p-8 shadow-sm">
           <div className="flex items-start gap-6">
-            <div className="rounded-3xl bg-red-50 p-4 text-red-600">
+            <div className="rounded-3xl bg-primary/10 p-4 text-primary">
               <Users className="h-6 w-6" />
             </div>
             <div>

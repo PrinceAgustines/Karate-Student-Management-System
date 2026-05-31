@@ -135,7 +135,7 @@ export function PerformanceSummary() {
             Export Report
           </Button>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center text-red-700">{error}</div>
+        <div className="bg-primary/10 border border-primary/30 rounded-lg p-6 text-center text-primary">{error}</div>
       </div>
     );
   }

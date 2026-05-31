@@ -206,7 +206,7 @@ export function Checkout() {
         {/* Checkout Form */}
         <div className="lg:col-span-2">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Delivery Information */}
+            {/* Pickup Information */}
             <div className="bg-white border border-neutral-200 rounded-lg p-6 space-y-4">
               <h2 className="font-bold text-lg flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
@@ -308,8 +308,8 @@ export function Checkout() {
                 <span>₱{cart.total_price.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span>Shipping</span>
-                <span className="text-green-600">Free (Meetup)</span>
+                <span>Pickup</span>
+                <span className="text-green-600">Meetup at Dojo</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Payment</span>

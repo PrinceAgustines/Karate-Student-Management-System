@@ -497,7 +497,7 @@ export function DojoSchedule() {
               />
             </div>
 
-            {error ? <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+            {error ? <div className="rounded-xl bg-primary/10 px-4 py-3 text-sm text-primary">{error}</div> : null}
 
             <div className="flex flex-col gap-3 pt-4 sm:flex-row">
               <Button variant="outline" className="flex-1" onClick={resetDialog}>

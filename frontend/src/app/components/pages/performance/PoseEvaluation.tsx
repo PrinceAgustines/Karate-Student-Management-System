@@ -141,6 +141,15 @@ export function PoseEvaluation() {
   const templateInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    // Cleanup media preview URL on unmount or when it changes
+    return () => {
+      if (mediaPreview) {
+        URL.revokeObjectURL(mediaPreview);
+      }
+    };
+  }, [mediaPreview]);
+
+  useEffect(() => {
     const loadInitialData = async () => {
       try {
         const [studentsData, evaluationsData, labelsData] = await Promise.all([

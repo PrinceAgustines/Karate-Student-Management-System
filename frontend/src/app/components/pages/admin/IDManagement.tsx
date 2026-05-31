@@ -140,7 +140,7 @@ export function IDManagement() {
                   <td className="px-6 py-4 text-sm font-medium">{item.code}</td>
                   <td className="px-6 py-4">
                     {item.status === 'assigned' || item.assigned_name ? (
-                      <span className="inline-flex items-center gap-1 px-3 py-2 rounded text-sm font-medium bg-green-50 text-green-700">
+                      <span className="inline-flex items-center gap-1 px-3 py-2 rounded text-sm font-medium bg-success/20 text-success">
                         <CheckCircle className="h-4 w-4" />
                         Assigned
                       </span>
@@ -170,7 +170,7 @@ export function IDManagement() {
                         onClick={() => handleDeleteId(item.id)}
                         disabled={!!processingIds[item.id]}
                       >
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </td>
@@ -225,7 +225,7 @@ export function IDManagement() {
             <Button
               onClick={handleGenerateIds}
               disabled={isSubmitting || isLoading}
-              className="w-full bg-red-600 hover:bg-red-700"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="h-4 w-4 mr-2" />
               Generate IDs
@@ -267,25 +267,25 @@ export function IDManagement() {
         <TabsList className="bg-white border border-neutral-200 rounded-full p-1 shadow-sm">
           <TabsTrigger
             value="student"
-            className="cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150 data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-red-50"
+            className="cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm hover:bg-primary/10"
           >
             Student IDs
           </TabsTrigger>
           <TabsTrigger
             value="instructor"
-            className="cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150 data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-red-50"
+            className="cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm hover:bg-primary/10"
           >
             Instructor IDs
           </TabsTrigger>
           <TabsTrigger
             value="admin"
-            className="cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150 data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-red-50"
+            className="cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm hover:bg-primary/10"
           >
             Admin IDs
           </TabsTrigger>
           <TabsTrigger
             value="parent"
-            className="cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150 data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=active]:shadow-sm hover:bg-red-50"
+            className="cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors duration-150 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm hover:bg-primary/10"
           >
             Parent IDs
           </TabsTrigger>

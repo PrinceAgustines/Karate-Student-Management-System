@@ -128,11 +128,11 @@ export function AttendanceLogs() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white border border-neutral-200 rounded-lg p-4">
           <div className="text-sm text-neutral-500 mb-1">Total Present</div>
-          <div className="text-2xl font-semibold text-green-600">{totalPresent}</div>
+          <div className="text-2xl font-semibold text-success">{totalPresent}</div>
         </div>
         <div className="bg-white border border-neutral-200 rounded-lg p-4">
           <div className="text-sm text-neutral-500 mb-1">Total Absent</div>
-          <div className="text-2xl font-semibold text-red-600">{totalAbsent}</div>
+          <div className="text-2xl font-semibold text-primary">{totalAbsent}</div>
         </div>
         <div className="bg-white border border-neutral-200 rounded-lg p-4">
           <div className="text-sm text-neutral-500 mb-1">Avg Recognition</div>
@@ -200,7 +200,7 @@ export function AttendanceLogs() {
                   <td className="px-6 py-4 text-sm text-neutral-600">{log.time_in ?? "TBD"}</td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                      log.time_in ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                      log.time_in ? "bg-success/20 text-success" : "bg-primary/20 text-primary"
                     }`}>
                       {log.time_in ? "Present" : "Absent"}
                     </span>

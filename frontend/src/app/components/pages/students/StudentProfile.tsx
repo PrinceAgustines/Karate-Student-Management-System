@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, Award, TrendingUp, CheckCircle, Home, Users, BookOpen, Zap, Loader } from "lucide-react";
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, Award, TrendingUp, CheckCircle, Home, Users, BookOpen, Zap, Loader, Eye, LayoutDashboard, Plus } from "lucide-react";
 import { Link, useParams } from "react-router";
-import { Avatar, AvatarImage, AvatarFallback } from "../../ui/avatar";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Progress } from "../../ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { useAuth } from "../../../auth";
-import { fetchAttendanceLogs, fetchInstructorRatings, fetchStudentById, fetchStudents, fetchMe, updateMe, updateStudentById } from "../../../api";
+import { fetchAttendanceLogs, fetchInstructorRatings, fetchStudentById, fetchStudents, fetchMe, updateMe, updateStudentById, fetchMyChildren } from "../../../api";
 
 const beltOrder = ["White", "Yellow", "Orange", "Green", "Blue", "Brown", "Black"];
 
@@ -40,18 +39,6 @@ const beltNextMapping: Record<string, string> = {
   Brown: "Black",
   Black: "Black",
 };
-
-const avatarOptions = [
-  "KarateKid",
-  "Phoenix",
-  "Samurai",
-  "Dragon",
-  "Tiger",
-  "Falcon",
-];
-
-const getAvatarUrl = (seed: string) =>
-  `https://api.dicebear.com/6.x/adventurer/svg?seed=${encodeURIComponent(seed)}&background=transparent`;
 
 type Address = {
   house_number?: string;
@@ -88,7 +75,6 @@ type StudentDetail = {
   club_branch?: string;
   date_enrolled?: string;
   application_number?: string;
-  avatar_url?: string;
   personal_info?: PersonalInfo;
   contacts?: ContactInfo[];
   addresses?: Address[];
@@ -125,19 +111,26 @@ type PerformanceRating = {
   notes: string;
 };
 
+type ParentChildRecord = {
+  student: number;
+  student_name: string;
+  first_name?: string;
+  last_name?: string;
+  relationship?: string;
+};
+
 export function StudentProfile() {
   const { id } = useParams();
   const studentId = id ? Number(id) : null;
   const { user } = useAuth();
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [parentProfile, setParentProfile] = useState<UserMe | null>(null);
+  const [children, setChildren] = useState<ParentChildRecord[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profileForm, setProfileForm] = useState<Partial<StudentDetail & UserMe>>({});
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [performanceRatings, setPerformanceRatings] = useState<PerformanceRating[]>([]);
-  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error' | null; message: string }>({ type: null, message: '' });
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadProfile() {
@@ -150,8 +143,14 @@ export function StudentProfile() {
             first_name: currentUser.first_name,
             last_name: currentUser.last_name,
             email: currentUser.email,
-            avatar_url: currentUser.avatar_url ?? getAvatarUrl(`${currentUser.first_name}-${currentUser.last_name}`),
           });
+          // fetch linked children for parent
+          try {
+            const myChildren = await fetchMyChildren();
+            setChildren(Array.isArray(myChildren) ? myChildren : []);
+          } catch {
+            setChildren([]);
+          }
           return;
         }
 
@@ -165,7 +164,6 @@ export function StudentProfile() {
             email_address: data.email_address,
             phone: data.phone,
             club_branch: data.club_branch,
-            avatar_url: data.avatar_url ?? getAvatarUrl(`${data.first_name}-${data.last_name}`),
           });
           return;
         }
@@ -189,7 +187,6 @@ export function StudentProfile() {
             email_address: studentData.email_address,
             phone: studentData.phone,
             club_branch: studentData.club_branch,
-            avatar_url: studentData.avatar_url ?? getAvatarUrl(`${studentData.first_name}-${studentData.last_name}`),
           });
         } else {
           setStudent({
@@ -203,7 +200,6 @@ export function StudentProfile() {
             club_branch: "",
             date_enrolled: "",
             application_number: "",
-            avatar_url: getAvatarUrl(`${currentUser.first_name}-${currentUser.last_name}`),
           });
           setProfileForm({
             first_name: currentUser.first_name,
@@ -212,7 +208,6 @@ export function StudentProfile() {
             email_address: currentUser.email,
             phone: "",
             club_branch: "",
-            avatar_url: getAvatarUrl(`${currentUser.first_name}-${currentUser.last_name}`),
           });
         }
       } catch {
@@ -324,37 +319,8 @@ export function StudentProfile() {
     },
   ], [attendanceHistory.length, belt, performanceRatings]);
 
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
-    
-    if (!profileForm.first_name?.trim()) {
-      errors.first_name = "First name is required";
-    }
-    if (!profileForm.last_name?.trim()) {
-      errors.last_name = "Last name is required";
-    }
-    if (profileForm.email_address && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileForm.email_address)) {
-      errors.email_address = "Invalid email format";
-    }
-    if (profileForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileForm.email)) {
-      errors.email = "Invalid email format";
-    }
-    if (profileForm.phone && !/^[\d\s+()-]*$/.test(profileForm.phone)) {
-      errors.phone = "Invalid phone format";
-    }
-    
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
   const handleSave = async () => {
-    if (!validateForm()) {
-      setSaveStatus({ type: 'error', message: 'Please fix validation errors before saving' });
-      return;
-    }
-
     setSaving(true);
-    setSaveStatus({ type: null, message: '' });
 
     try {
       if (isParentProfile && parentProfile) {
@@ -362,18 +328,15 @@ export function StudentProfile() {
           first_name: profileForm.first_name,
           last_name: profileForm.last_name,
           email: profileForm.email,
-          avatar_url: profileForm.avatar_url,
         });
         setParentProfile(updated);
         setEditMode(false);
-        setSaveStatus({ type: 'success', message: 'Profile updated successfully!' });
-        setTimeout(() => setSaveStatus({ type: null, message: '' }), 3000);
+        setSaving(false);
         return;
       }
 
       if (!student?.student_id) {
         setSaving(false);
-        setSaveStatus({ type: 'error', message: 'Student profile not found' });
         return;
       }
 
@@ -384,20 +347,15 @@ export function StudentProfile() {
         email_address: profileForm.email_address,
         phone: profileForm.phone,
         club_branch: profileForm.club_branch,
-        avatar_url: profileForm.avatar_url,
       });
       setStudent(updated);
       setEditMode(false);
-      setSaveStatus({ type: 'success', message: 'Profile updated successfully!' });
-      setTimeout(() => setSaveStatus({ type: null, message: '' }), 3000);
-    } catch (error) {
-      setSaveStatus({ type: 'error', message: error instanceof Error ? error.message : 'Failed to save profile' });
+    } catch {
+      // ignore save errors for now
     } finally {
       setSaving(false);
     }
   };
-
-  const canEdit = isParentProfile || user.role === 'admin' || user.role === 'instructor' || (user.role === 'student' && !studentId);
 
   const attendanceRate = attendanceHistory.length > 0 
     ? Math.round((attendanceHistory.filter(a => a.status === "Present").length / attendanceHistory.length) * 100)
@@ -407,20 +365,179 @@ export function StudentProfile() {
     ? Math.round(performanceRatings.reduce((a, b) => a + b.score, 0) / performanceRatings.length)
     : 0;
 
+  if (isParentProfile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 py-6 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto space-y-8">
+          <div className="rounded-[32px] border border-neutral-200 bg-white p-8 shadow-sm">
+            <div className="lg:flex lg:items-center lg:justify-between gap-6">
+              <div className="space-y-4">
+                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-red-600">Parent Profile</p>
+                <h1 className="text-4xl font-semibold tracking-tight">Welcome, {parentProfile?.first_name ?? "Parent"}</h1>
+                <p className="max-w-2xl text-sm leading-7 text-neutral-600">
+                  This page is your safe space for managing linked children, updating contact details, and keeping track of progress without student-specific metrics.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link to="/dashboard/children">
+                  <Button variant="outline">
+                    <Users className="h-4 w-4 mr-2" />
+                    Manage Children
+                  </Button>
+                </Link>
+                <Link to="/dashboard/children">
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Link a Child
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
+            <div className="space-y-6">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-neutral-500">Account summary</p>
+                    <h2 className="mt-3 text-2xl font-semibold text-neutral-900">{fullName}</h2>
+                    <p className="mt-1 text-sm text-neutral-600">Parent ID: {parentProfile?.id ?? "—"}</p>
+                  </div>
+                  <div className="rounded-3xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                    {children.length} linked child{children.length === 1 ? "" : "ren"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between gap-4 mb-6">
+                  <div>
+                    <p className="text-sm font-semibold">Contact & Profile</p>
+                    <p className="text-xs text-neutral-500">Keep your parent account information up to date.</p>
+                  </div>
+                  <div className="text-xs text-neutral-500">{editMode ? "Editing enabled" : "View only"}</div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-600 block mb-2">First name</label>
+                    {editMode ? (
+                      <Input
+                        value={profileForm.first_name ?? ""}
+                        onChange={(e) => setProfileForm({ ...profileForm, first_name: e.target.value })}
+                        placeholder="First name"
+                      />
+                    ) : (
+                      <p className="text-neutral-700">{parentProfile?.first_name ?? "—"}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-600 block mb-2">Last name</label>
+                    {editMode ? (
+                      <Input
+                        value={profileForm.last_name ?? ""}
+                        onChange={(e) => setProfileForm({ ...profileForm, last_name: e.target.value })}
+                        placeholder="Last name"
+                      />
+                    ) : (
+                      <p className="text-neutral-700">{parentProfile?.last_name ?? "—"}</p>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-semibold text-neutral-600 block mb-2">Email address</label>
+                    {editMode ? (
+                      <Input
+                        value={profileForm.email ?? ""}
+                        onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                        placeholder="name@example.com"
+                      />
+                    ) : (
+                      <p className="text-neutral-700">{parentProfile?.email ?? "—"}</p>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-semibold text-neutral-600 block mb-2">Phone number</label>
+                    {editMode ? (
+                      <Input
+                        value={profileForm.phone ?? ""}
+                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        placeholder="Mobile number"
+                      />
+                    ) : (
+                      <p className="text-neutral-700">{profileForm.phone ?? "—"}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Button
+                    variant={editMode ? "default" : "outline"}
+                    onClick={() => setEditMode(!editMode)}
+                  >
+                    {editMode ? "Cancel" : "Edit profile"}
+                  </Button>
+                  {editMode ? (
+                    <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSave} disabled={saving}>
+                      {saving ? <Loader className="h-4 w-4 mr-2 animate-spin" /> : null}
+                      Save changes
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <div>
+                    <p className="text-sm font-semibold">Linked children</p>
+                    <p className="text-xs text-neutral-500">Quick access to each child’s dashboard.</p>
+                  </div>
+                  <Link to="/dashboard/children" className="text-sm font-semibold text-red-600 hover:text-red-700">
+                    Manage
+                  </Link>
+                </div>
+                <div className="rounded-3xl border border-neutral-200 bg-neutral-50 p-6 text-sm text-neutral-600">
+                  <p className="font-medium text-neutral-900">{children.length} child{children.length === 1 ? "" : "ren"} linked</p>
+                  <p className="mt-2">This section is for parent account management only. Manage linked children from the My Children page.</p>
+                  <div className="mt-4">
+                    <Link to="/dashboard/children">
+                      <Button size="sm" variant="outline">
+                        Manage linked children
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <aside className="space-y-6">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+                <p className="text-sm font-semibold">Parent account details</p>
+                <div className="mt-4 space-y-3 text-sm text-neutral-600">
+                  <p><span className="font-semibold text-neutral-900">Username:</span> {parentProfile?.username ?? "—"}</p>
+                  <p><span className="font-semibold text-neutral-900">Role:</span> Parent</p>
+                  <p><span className="font-semibold text-neutral-900">Linked children:</span> {children.length}</p>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
+                <p className="text-sm font-semibold">Best practices</p>
+                <ul className="mt-4 space-y-3 text-sm text-neutral-600">
+                  <li className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-red-600" />Use this page to keep your contact info current.</li>
+                  <li className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-red-600" />Open each child’s dashboard to review attendance and promotion readiness.</li>
+                  <li className="flex gap-3"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-red-600" />Add or remove linked children on the My Children page.</li>
+                </ul>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Status Messages */}
-        {saveStatus.type && (
-          <div className={`rounded-lg border p-4 ${
-            saveStatus.type === 'success'
-              ? 'bg-green-50 border-green-200 text-green-800'
-              : 'bg-red-50 border-red-200 text-red-800'
-          }`}>
-            <p className="text-sm font-medium">{saveStatus.message}</p>
-          </div>
-        )}
-
         {/* Header Navigation */}
         <div className="flex items-center justify-between">
           <Link to={user.role === "student" ? "/dashboard/student" : user.role === "parent" ? "/dashboard/children" : "/dashboard/students"}>
@@ -430,31 +547,24 @@ export function StudentProfile() {
             </Button>
           </Link>
           <div className="flex items-center gap-2">
-            {canEdit && (
-              <>
-                <Button
-                  variant={editMode ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setEditMode(!editMode);
-                    setValidationErrors({});
-                  }}
-                  className={editMode ? "bg-red-600 hover:bg-red-700" : ""}
-                >
-                  {editMode ? "Cancel" : "Edit Profile"}
-                </Button>
-                {editMode && (
-                  <Button
-                    className="bg-green-600 hover:bg-green-700"
-                    size="sm"
-                    onClick={handleSave}
-                    disabled={saving}
-                  >
-                    {saving ? <Loader className="h-4 w-4 mr-2 animate-spin" /> : null}
-                    Save Changes
-                  </Button>
-                )}
-              </>
+            <Button
+              variant={editMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEditMode(!editMode)}
+              className={editMode ? "bg-red-600 hover:bg-red-700" : ""}
+            >
+              {editMode ? "Cancel" : "Edit Profile"}
+            </Button>
+            {editMode && (
+              <Button
+                className="bg-green-600 hover:bg-green-700"
+                size="sm"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? <Loader className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Save Changes
+              </Button>
             )}
           </div>
         </div>
@@ -467,10 +577,7 @@ export function StudentProfile() {
               {/* Profile Avatar */}
               <div className="flex-shrink-0">
                 <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl bg-white shadow-lg overflow-hidden border-4 border-white flex items-center justify-center">
-                  <Avatar className="w-full h-full rounded-2xl bg-white">
-                    <AvatarImage src={profileForm.avatar_url || getAvatarUrl(fullName || "student")} alt={fullName} />
-                    <AvatarFallback className="text-neutral-500">{fullName.charAt(0)}</AvatarFallback>
-                  </Avatar>
+                  <img src="/api/placeholder/128/128" alt={fullName} className="w-full h-full object-cover" />
                 </div>
               </div>
 
@@ -491,29 +598,6 @@ export function StudentProfile() {
                 <p className={`text-sm ${belt === "Black" ? "text-white/80" : "text-gray-700"}`}>
                   ID: {studentSystemId} • Member since {student?.date_enrolled ?? "N/A"}
                 </p>
-                {editMode && (
-                  <div className="mt-4">
-                    <div className="text-sm font-medium text-white/90 mb-3">Pick an avatar</div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {avatarOptions.map((option) => {
-                        const url = getAvatarUrl(option);
-                        const selected = profileForm.avatar_url === url;
-                        return (
-                          <button
-                            type="button"
-                            key={option}
-                            onClick={() => setProfileForm({ ...profileForm, avatar_url: url })}
-                            className={`rounded-2xl border p-1 transition ${
-                              selected ? "border-white bg-white/30" : "border-white/30 bg-white/80 hover:bg-white"
-                            }`}
-                          >
-                            <img src={url} alt={option} className="w-16 h-16 rounded-xl object-cover" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Progress Badge */}
@@ -605,29 +689,17 @@ export function StudentProfile() {
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="email" className="text-xs font-semibold text-neutral-600 block mb-2">
-                      Email Address
-                      {validationErrors[isParentProfile ? 'email' : 'email_address'] && (
-                        <span className="text-red-600"> *</span>
-                      )}
-                    </label>
+                    <label className="text-xs font-semibold text-neutral-600 block mb-2">Email Address</label>
                     {editMode ? (
-                      <>
-                        <Input
-                          id="email"
-                          name="email"
-                          value={isParentProfile ? profileForm.email ?? "" : profileForm.email_address ?? ""}
-                          onChange={(e) => setProfileForm({
-                            ...profileForm,
-                            ...(isParentProfile ? { email: e.target.value } : { email_address: e.target.value }),
-                          })}
-                          placeholder="Enter email address"
-                          className={`w-full ${validationErrors[isParentProfile ? 'email' : 'email_address'] ? 'border-red-500' : ''}`}
-                        />
-                        {validationErrors[isParentProfile ? 'email' : 'email_address'] && (
-                          <p className="text-xs text-red-600 mt-1">{validationErrors[isParentProfile ? 'email' : 'email_address']}</p>
-                        )}
-                      </>
+                      <Input
+                        value={isParentProfile ? profileForm.email ?? "" : profileForm.email_address ?? ""}
+                        onChange={(e) => setProfileForm({
+                          ...profileForm,
+                          ...(isParentProfile ? { email: e.target.value } : { email_address: e.target.value }),
+                        })}
+                        placeholder="Enter email address"
+                        className="w-full"
+                      />
                     ) : (
                       <p className="text-neutral-700 font-medium">
                         {isParentProfile ? parentProfile?.email ?? "—" : student?.email_address ?? "—"}
@@ -635,36 +707,24 @@ export function StudentProfile() {
                     )}
                   </div>
                   <div>
-                    <label htmlFor="phone" className="text-xs font-semibold text-neutral-600 block mb-2">
-                      Phone Number
-                      {validationErrors.phone && <span className="text-red-600"> *</span>}
-                    </label>
+                    <label className="text-xs font-semibold text-neutral-600 block mb-2">Phone Number</label>
                     {editMode ? (
-                      <>
-                        <Input
-                          id="phone"
-                          name="phone"
-                          value={profileForm.phone ?? ""}
-                          onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                          placeholder="Enter phone number"
-                          className={`w-full ${validationErrors.phone ? 'border-red-500' : ''}`}
-                        />
-                        {validationErrors.phone && (
-                          <p className="text-xs text-red-600 mt-1">{validationErrors.phone}</p>
-                        )}
-                      </>
+                      <Input
+                        value={profileForm.phone ?? ""}
+                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        placeholder="Enter phone number"
+                        className="w-full"
+                      />
                     ) : (
                       <p className="text-neutral-700 font-medium">
-                        {student?.phone ?? "—"}
+                        {isParentProfile ? profileForm.phone ?? "—" : student?.phone ?? "—"}
                       </p>
                     )}
                   </div>
                   <div>
-                    <label htmlFor="club_branch" className="text-xs font-semibold text-neutral-600 block mb-2">Club Branch</label>
+                    <label className="text-xs font-semibold text-neutral-600 block mb-2">Club Branch</label>
                     {editMode ? (
                       <Input
-                        id="club_branch"
-                        name="club_branch"
                         value={profileForm.club_branch ?? ""}
                         onChange={(e) => setProfileForm({ ...profileForm, club_branch: e.target.value })}
                         placeholder="Enter branch"
@@ -688,62 +748,18 @@ export function StudentProfile() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="birth_date" className="text-xs font-semibold text-neutral-600 block mb-2">Birth Date</label>
-                    {editMode && canEdit ? (
-                      <Input
-                        id="birth_date"
-                        name="birth_date"
-                        type="date"
-                        value={student?.personal_info?.birth_date ?? ""}
-                        onChange={(e) => setStudent(student ? {
-                          ...student,
-                          personal_info: { ...student.personal_info, birth_date: e.target.value }
-                        } : null)}
-                        className="w-full"
-                      />
-                    ) : (
+                      <label className="text-xs font-semibold text-neutral-600 block mb-2">Birth Date</label>
                       <p className="text-neutral-700 font-medium">{student?.personal_info?.birth_date ?? "—"}</p>
-                    )}
                     </div>
                     <div>
-                    <label htmlFor="height" className="text-xs font-semibold text-neutral-600 block mb-2">Height (cm)</label>
-                    {editMode && canEdit ? (
-                      <Input
-                        id="height"
-                        name="height"
-                        type="number"
-                        value={student?.personal_info?.height ?? ""}
-                        onChange={(e) => setStudent(student ? {
-                          ...student,
-                          personal_info: { ...student.personal_info, height: e.target.value }
-                        } : null)}
-                        placeholder="Height in cm"
-                        className="w-full"
-                      />
-                    ) : (
+                      <label className="text-xs font-semibold text-neutral-600 block mb-2">Height</label>
                       <p className="text-neutral-700 font-medium">{student?.personal_info?.height ? `${student.personal_info.height} cm` : "—"}</p>
-                    )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                    <label htmlFor="weight" className="text-xs font-semibold text-neutral-600 block mb-2">Weight (kg)</label>
-                    {editMode && canEdit ? (
-                      <Input
-                        id="weight"
-                        name="weight"
-                        type="number"
-                        value={student?.personal_info?.weight ?? ""}
-                        onChange={(e) => setStudent(student ? {
-                          ...student,
-                          personal_info: { ...student.personal_info, weight: e.target.value }
-                        } : null)}
-                        placeholder="Weight in kg"
-                        className="w-full"
-                      />
-                    ) : (
+                      <label className="text-xs font-semibold text-neutral-600 block mb-2">Weight</label>
                       <p className="text-neutral-700 font-medium">{student?.personal_info?.weight ? `${student.personal_info.weight} kg` : "—"}</p>
-                    )}
                     </div>
                     <div>
                       <label className="text-xs font-semibold text-neutral-600 block mb-2">Student ID</label>
@@ -754,7 +770,7 @@ export function StudentProfile() {
               </div>
             </div>
 
-            {/* Address & Guardian Info */}
+                {/* Address & Guardian Info */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Address Information */}
               <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm">
@@ -796,6 +812,46 @@ export function StudentProfile() {
               </div>
             </div>
           </TabsContent>
+
+          {/* Parent: Linked Children */}
+          {isParentProfile && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border border-neutral-200 p-6 shadow-sm">
+                <h3 className="text-lg font-semibold mb-6 flex items-center">
+                  <Users className="h-5 w-5 mr-2 text-red-600" />
+                  Linked Children
+                </h3>
+                {children && children.length > 0 ? (
+                  <div className="space-y-3">
+                    {children.map((c) => (
+                      <div key={c.student} className="p-3 bg-neutral-50 rounded-lg flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-neutral-900">{`${c.first_name} ${c.last_name}`}</p>
+                          <p className="text-sm text-neutral-600">ID: {c.student}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Link to={`/dashboard/students/${c.student}/dashboard`}>
+                            <Button variant="outline" size="sm">
+                              <LayoutDashboard className="h-4 w-4 mr-2" />
+                              Dashboard
+                            </Button>
+                          </Link>
+                          <Link to={`/dashboard/students/${c.student}`}>
+                            <Button variant="ghost" size="sm">
+                              <Eye className="h-4 w-4 mr-2" />
+                              Profile
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-neutral-500 italic">No children linked to your account.</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Progression Tab */}
           <TabsContent value="progression" className="space-y-6">

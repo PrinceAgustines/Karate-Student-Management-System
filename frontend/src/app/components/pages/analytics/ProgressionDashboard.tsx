@@ -23,25 +23,25 @@ export function ProgressionDashboard() {
         label: "Promotion Ready",
         value: descriptive ? `${descriptive.promotion_ready_count}` : "--",
         icon: Award,
-        color: "text-green-600",
+        color: "text-success",
       },
       {
         label: "Performance Avg",
         value: descriptive ? `${descriptive.overall_average_score.toFixed(1)}%` : "--",
         icon: TrendingUp,
-        color: "text-blue-600",
+        color: "text-primary",
       },
       {
         label: "Sessions Recorded",
         value: descriptive ? `${descriptive.total_sessions}` : "--",
         icon: Calendar,
-        color: "text-purple-600",
+        color: "text-accent",
       },
       {
         label: "Avg Attendance",
         value: descriptive ? `${descriptive.avg_session_attendance.toFixed(1)}` : "--",
         icon: Target,
-        color: "text-red-600",
+        color: "text-warning",
       },
     ];
   }, [overview]);
@@ -77,7 +77,7 @@ export function ProgressionDashboard() {
           <h1 className="text-2xl font-semibold">Progression Dashboard</h1>
           <p className="text-sm text-neutral-500">Belt advancement and skill development tracking</p>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center text-red-700">{error}</div>
+        <div className="bg-primary/10 border border-primary rounded-lg p-6 text-center text-primary">{error}</div>
       </div>
     );
   }

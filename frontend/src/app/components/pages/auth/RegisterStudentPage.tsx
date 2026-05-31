@@ -267,8 +267,8 @@ export function RegisterStudentPage() {
 
         {/* Header */}
         <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 bg-red-600 rounded-lg flex items-center justify-center">
-            <Award className="h-10 w-10 text-white" />
+          <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center">
+            <Award className="h-10 w-10 text-primary-foreground" />
           </div>
         </div>
 
@@ -305,16 +305,16 @@ export function RegisterStudentPage() {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-primary">{error}</p>
               </div>
             )}
 
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-red-600 hover:bg-red-700 py-2.5"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-2.5"
             >
               {isLoading ? (
                 <>
@@ -339,7 +339,7 @@ export function RegisterStudentPage() {
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                         i <= formStep
-                          ? "bg-red-600 text-white"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-neutral-200 text-neutral-600"
                       }`}
                     >
@@ -348,7 +348,7 @@ export function RegisterStudentPage() {
                     {i < 4 && (
                       <div
                         className={`flex-1 h-1 mx-2 ${
-                          i < formStep ? "bg-red-600" : "bg-neutral-200"
+                          i < formStep ? "bg-primary" : "bg-neutral-200"
                         }`}
                       />
                     )}
@@ -493,7 +493,7 @@ export function RegisterStudentPage() {
                     <Button
                       type="button"
                       onClick={() => validateStep(1) && setFormStep(2)}
-                      className="flex-1 bg-red-600 hover:bg-red-700"
+                      className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       Next: Contact Info
                     </Button>
@@ -720,7 +720,7 @@ export function RegisterStudentPage() {
                     <Button
                       type="button"
                       onClick={() => validateStep(2) && setFormStep(3)}
-                      className="flex-1 bg-red-600 hover:bg-red-700"
+                      className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       Next: Background
                     </Button>
@@ -877,7 +877,7 @@ export function RegisterStudentPage() {
                     <Button
                       type="button"
                       onClick={() => validateStep(3) && setFormStep(4)}
-                      className="flex-1 bg-red-600 hover:bg-red-700"
+                      className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       Next: Security
                     </Button>

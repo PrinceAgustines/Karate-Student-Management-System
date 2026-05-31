@@ -127,7 +127,7 @@ export function ReportsGenerator() {
             <p className="text-sm text-neutral-500">Export performance, attendance, and progression reports.</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <Button className="bg-red-600 hover:bg-red-700 flex-1 sm:flex-none" disabled>
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground flex-1 sm:flex-none" disabled>
               <Download className="h-4 w-4 mr-2" />
               Export PDF
             </Button>
@@ -158,7 +158,7 @@ export function ReportsGenerator() {
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <Button
-            className="bg-red-600 hover:bg-red-700 flex-1 sm:flex-none"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground flex-1 sm:flex-none"
             onClick={() => exportReportData("pdf")}
           >
             <Download className="h-4 w-4 mr-2" />
@@ -179,7 +179,7 @@ export function ReportsGenerator() {
         {reportSummaries.map((report) => (
           <div key={report.title} className="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-secondary text-primary flex items-center justify-center">
                 <report.icon className="h-5 w-5" />
               </div>
               <div>

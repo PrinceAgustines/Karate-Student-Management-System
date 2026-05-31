@@ -58,7 +58,7 @@ export function LoginPage() {
     <div className="w-full max-w-md mx-auto px-4">
       <div className="bg-white rounded-lg border border-neutral-200 p-8 shadow-sm">
         <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 bg-red-600 rounded-lg flex items-center justify-center">
+          <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center">
             <Award className="h-10 w-10 text-white" />
           </div>
         </div>
@@ -116,7 +116,7 @@ export function LoginPage() {
 
           {error && <div className="text-sm text-red-600">{error}</div>}
 
-          <Button type="submit" className="w-full bg-red-600 hover:bg-red-700">
+          <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
             Sign In
           </Button>
         </form>

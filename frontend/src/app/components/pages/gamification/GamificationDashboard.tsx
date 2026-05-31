@@ -308,8 +308,8 @@ export function GamificationDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-white border border-neutral-200 rounded-lg p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-yellow-50">
-                  <Trophy className="h-5 w-5 text-yellow-600" />
+                <div className="p-2 rounded-lg bg-warning/20">
+                  <Trophy className="h-5 w-5 text-warning" />
                 </div>
                 <div>
                   <div className="text-2xl font-semibold">{badgeData.filter((badge) => badge.earned).length}</div>
@@ -341,8 +341,8 @@ export function GamificationDashboard() {
             </div>
             <div className="bg-white border border-neutral-200 rounded-lg p-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-50">
-                  <Flame className="h-5 w-5 text-red-600" />
+                <div className="p-2 rounded-lg bg-warning/20">
+                  <Flame className="h-5 w-5 text-warning" />
                 </div>
                 <div>
                   <div className="text-2xl font-semibold">{attendanceThisWeek}</div>
@@ -380,8 +380,8 @@ export function GamificationDashboard() {
                       key={badge.id}
                       type="button"
                       onClick={() => loadBadgeStudents(badge)}
-                      className={`text-left rounded-2xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-red-500 ${
-                        selectedBadge?.id === badge.id ? "border-red-300 bg-red-50" : "border-neutral-200 bg-white hover:border-red-300 hover:bg-red-50/60"
+                      className={`text-left rounded-2xl border p-5 transition focus:outline-none focus:ring-2 focus:ring-primary ${
+                        selectedBadge?.id === badge.id ? "border-primary/50 bg-primary/10" : "border-neutral-200 bg-white hover:border-primary/50 hover:bg-primary/5"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-4">
@@ -453,7 +453,7 @@ export function GamificationDashboard() {
               <div
                 key={badge.id}
                 className={`bg-white border rounded-lg p-6 text-center ${
-                  badge.earned ? "border-yellow-300 bg-yellow-50/30" : "border-neutral-200 opacity-60"
+                  badge.earned ? "border-warning/50 bg-warning/10" : "border-neutral-200 opacity-60"
                 }`}
               >
                 <div className="text-6xl mb-3">{badge.icon}</div>
@@ -476,7 +476,7 @@ export function GamificationDashboard() {
             <div className="bg-white border border-neutral-200 rounded-lg">
               <div className="p-6 border-b border-neutral-200">
                 <h3 className="font-semibold flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-yellow-600" />
+                  <Trophy className="h-5 w-5 text-warning" />
                   Overall Leaderboard
                 </h3>
               </div>
@@ -486,11 +486,11 @@ export function GamificationDashboard() {
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                         entry.rank === 1
-                          ? "bg-yellow-100 text-yellow-700"
+                          ? "bg-warning/20 text-warning"
                           : entry.rank === 2
                           ? "bg-neutral-200 text-neutral-700"
                           : entry.rank === 3
-                          ? "bg-orange-100 text-orange-700"
+                          ? "bg-accent/20 text-accent"
                           : "bg-neutral-100 text-neutral-600"
                       }`}
                     >
@@ -501,7 +501,7 @@ export function GamificationDashboard() {
                       <div className="text-xs text-neutral-500">{entry.belt} Belt</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-red-600">{entry.xp}</div>
+                      <div className="font-semibold text-primary">{entry.xp}</div>
                       <div className="text-xs text-neutral-500">XP</div>
                     </div>
                   </div>
@@ -512,7 +512,7 @@ export function GamificationDashboard() {
             <div className="bg-white border border-neutral-200 rounded-lg">
               <div className="p-6 border-b border-neutral-200">
                 <h3 className="font-semibold flex items-center gap-2">
-                  <Star className="h-5 w-5 text-blue-600" />
+                  <Star className="h-5 w-5 text-primary" />
                   This Month
                 </h3>
               </div>
@@ -522,11 +522,11 @@ export function GamificationDashboard() {
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
                         entry.rank === 1
-                          ? "bg-yellow-100 text-yellow-700"
+                          ? "bg-warning/20 text-warning"
                           : entry.rank === 2
                           ? "bg-neutral-200 text-neutral-700"
                           : entry.rank === 3
-                          ? "bg-orange-100 text-orange-700"
+                          ? "bg-accent/20 text-accent"
                           : "bg-neutral-100 text-neutral-600"
                       }`}
                     >
@@ -537,7 +537,7 @@ export function GamificationDashboard() {
                       <div className="text-xs text-neutral-500">{entry.belt} Belt</div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-blue-600">{entry.xp}</div>
+                      <div className="font-semibold text-primary">{entry.xp}</div>
                       <div className="text-xs text-neutral-500">XP</div>
                     </div>
                   </div>

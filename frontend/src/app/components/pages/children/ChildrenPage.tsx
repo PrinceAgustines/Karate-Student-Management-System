@@ -114,7 +114,7 @@ export function ChildrenPage() {
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-red-600 hover:bg-red-700">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
               <Plus className="h-4 w-4 mr-2" />
               Add Child
             </Button>
@@ -155,7 +155,7 @@ export function ChildrenPage() {
                 </Select>
               </div>
 
-              {error && <div className="text-sm text-red-600">{error}</div>}
+              {error && <div className="text-sm text-primary">{error}</div>}
 
               <div className="flex justify-end gap-2">
                 <Button
@@ -166,7 +166,7 @@ export function ChildrenPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading} className="bg-red-600 hover:bg-red-700">
+                <Button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   {isLoading ? "Adding..." : "Add Child"}
                 </Button>
               </div>
@@ -182,7 +182,7 @@ export function ChildrenPage() {
           <p className="text-neutral-600 mb-6 max-w-md mx-auto">
             Add your children to start monitoring their karate progress and performance.
           </p>
-          <Button onClick={() => setIsAddDialogOpen(true)} className="bg-red-600 hover:bg-red-700">
+          <Button onClick={() => setIsAddDialogOpen(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
             <Plus className="h-4 w-4 mr-2" />
             Add Your First Child
           </Button>
@@ -192,14 +192,14 @@ export function ChildrenPage() {
           {children.map((child) => (
             <div key={child.id} className="bg-white border border-neutral-200 rounded-lg p-6">
               <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-semibold">
+                <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-primary font-semibold">
                   {child.student_name.charAt(0)}
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleRemoveChild(child.id)}
-                  className="text-neutral-400 hover:text-red-600"
+                  className="text-muted-foreground hover:text-primary"
                 >
                   <UserMinus className="h-4 w-4" />
                 </Button>
@@ -209,7 +209,7 @@ export function ChildrenPage() {
                 <h3 className="font-semibold text-lg">{child.student_name}</h3>
                 <p className="text-sm text-neutral-500 capitalize">{child.relationship}</p>
                 {child.is_primary_contact && (
-                  <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                  <span className="inline-block px-2 py-1 text-xs bg-info text-info-foreground rounded">
                     Primary Contact
                   </span>
                 )}

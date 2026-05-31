@@ -129,7 +129,7 @@ export function BeltProgressionDisplay({
           <div className="space-y-2 pt-2 border-t">
             <div className="flex justify-between">
               <p className="text-sm font-medium">Readiness for Next Belt</p>
-              <span className="text-sm font-semibold text-blue-600">
+              <span className="text-sm font-semibold text-primary">
                 {Math.round(overallReadinessPercentage)}%
               </span>
             </div>

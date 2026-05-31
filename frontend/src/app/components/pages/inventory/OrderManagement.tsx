@@ -230,7 +230,7 @@ export function OrderManagement() {
                     <p className="text-sm text-neutral-600">{order.recipient_contact}</p>
                   </div>
                   <div>
-                    <p className="font-semibold text-sm mb-1">Delivery Address</p>
+                    <p className="font-semibold text-sm mb-1">Pickup Location</p>
                     <p className="text-sm">{order.delivery_address}</p>
                     {order.delivery_city && (
                       <p className="text-sm text-neutral-600">{order.delivery_city}</p>

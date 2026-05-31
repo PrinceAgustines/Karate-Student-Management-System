@@ -184,9 +184,9 @@ export function OrderHistory() {
                   </div>
                 </div>
 
-                {/* Delivery Info */}
+                {/* Pickup Info */}
                 <div className="bg-neutral-50 p-3 rounded text-sm">
-                  <p className="font-semibold mb-1">Delivery Details</p>
+                  <p className="font-semibold mb-1">Pickup Details</p>
                   <p>{order.recipient_name} • {order.recipient_contact}</p>
                   <p className="text-neutral-600">{order.delivery_address}</p>
                   {order.delivery_city && (
@@ -284,7 +284,7 @@ export function OrderHistory() {
                   <span>₱{parseFloat(selectedOrder.total_amount).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Shipping</span>
+                  <span>Pickup</span>
                   <span className="text-green-600">Free (Meetup at Dojo)</span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -297,13 +297,13 @@ export function OrderHistory() {
                 </div>
               </div>
 
-              {/* Delivery Information */}
+              {/* Pickup Information */}
               <div className="bg-neutral-50 p-4 rounded">
-                <h3 className="font-semibold mb-2">Delivery Information</h3>
+                <h3 className="font-semibold mb-2">Pickup Information</h3>
                 <div className="space-y-1 text-sm">
                   <p><strong>Name:</strong> {selectedOrder.recipient_name}</p>
                   <p><strong>Contact:</strong> {selectedOrder.recipient_contact}</p>
-                  <p><strong>Address:</strong> {selectedOrder.delivery_address}</p>
+                  <p><strong>Pickup Location:</strong> {selectedOrder.delivery_address}</p>
                   {selectedOrder.delivery_city && (
                     <p><strong>City:</strong> {selectedOrder.delivery_city}</p>
                   )}

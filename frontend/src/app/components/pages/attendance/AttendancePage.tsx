@@ -13,7 +13,7 @@ export function AttendancePage() {
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-red-600">Attendance</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-primary">Attendance</p>
             <h1 className="mt-2 text-3xl font-semibold text-slate-900">Attendance Tracker & Logs</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               Manage session attendance, review recognition results, and explore attendance history all in one place.
@@ -23,7 +23,7 @@ export function AttendancePage() {
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="text-xs uppercase tracking-[0.2em] text-slate-500">Current workspace</div>
               <div className="mt-2 flex items-center gap-2 text-sm font-medium text-slate-900">
-                <Calendar className="h-4 w-4 text-red-600" />
+                <Calendar className="h-4 w-4 text-primary" />
                 Attendance management
               </div>
             </div>
@@ -41,7 +41,7 @@ export function AttendancePage() {
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Calendar className="h-5 w-5 text-red-600" />
+            <Calendar className="h-5 w-5 text-primary" />
             Attendance Workspace
           </CardTitle>
           <CardDescription>

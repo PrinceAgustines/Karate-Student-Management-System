@@ -419,517 +419,457 @@ export function AttendanceTracker() {
   const markedCount = students.filter((s) => s.status !== null).length;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Attendance Tracker</h1>
-        <p className="text-sm text-neutral-500">Mark attendance for training sessions</p>
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="rounded-3xl border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 p-6 sm:p-8">
+        <p className="text-sm uppercase tracking-[0.2em] text-red-600 font-semibold">Smart Attendance System</p>
+        <h1 className="mt-3 text-3xl sm:text-4xl font-bold text-slate-900">Take Attendance</h1>
+        <p className="mt-2 text-base text-slate-600 max-w-2xl">
+          {enrollmentMode 
+            ? "Set up student face recognition by taking group photos and assigning faces to students."
+            : "Take a group photo to automatically recognize and mark students present or absent."}
+        </p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.7fr_0.9fr]">
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        {/* Main Content */}
         <div className="space-y-6">
-          <div className="bg-white border border-neutral-200 rounded-lg p-6">
-            <div className="mb-4">
-              <label className="text-sm font-medium mb-2 block">Select Session</label>
-              <Select value={sessionId} onValueChange={setSessionId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sessions.map((session) => (
-                    <SelectItem key={session.session_id} value={String(session.session_id)}>
-                      {`${session.session_type} - ${new Date(session.date).toLocaleDateString()} ${session.start_time}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Step 1: Select Session */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 font-bold text-red-600">1</div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-slate-900">Choose Your Session</h2>
+                <p className="mt-1 text-sm text-slate-600">Select which class session to mark attendance for today</p>
+                
+                <Select value={sessionId} onValueChange={setSessionId}>
+                  <SelectTrigger className="mt-4">
+                    <SelectValue placeholder="Select a session..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sessions.map((session) => (
+                      <SelectItem key={session.session_id} value={String(session.session_id)}>
+                        {`${session.session_type} - ${new Date(session.date).toLocaleDateString()} at ${session.start_time}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-neutral-500 block mb-1">Session</span>
-                <span className="font-medium">{selectedSession?.session_type ?? "Loading..."}</span>
-              </div>
-              <div>
-                <span className="text-neutral-500 block mb-1">Date</span>
-                <span className="font-medium">{selectedSession?.date ?? "N/A"}</span>
-              </div>
-              <div>
-                <span className="text-neutral-500 block mb-1">Time</span>
-                <span className="font-medium">{selectedSession ? `${selectedSession.start_time} - ${selectedSession.end_time}` : "N/A"}</span>
-              </div>
-              <div>
-                <span className="text-neutral-500 block mb-1">Instructor</span>
-                <span className="font-medium">{selectedSession?.instructor ?? "N/A"}</span>
-              </div>
-              <div>
-                <span className="text-neutral-500 block mb-1">Venue</span>
-                <span className="font-medium">{selectedSession?.venue ?? "N/A"}</span>
+                {selectedSession && (
+                  <div className="mt-4 rounded-xl bg-slate-50 p-4">
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-slate-600">Type:</span>
+                        <div className="font-semibold text-slate-900">{selectedSession.session_type}</div>
+                      </div>
+                      <div>
+                        <span className="text-slate-600">Date:</span>
+                        <div className="font-semibold text-slate-900">{new Date(selectedSession.date).toLocaleDateString()}</div>
+                      </div>
+                      <div>
+                        <span className="text-slate-600">Time:</span>
+                        <div className="font-semibold text-slate-900">{selectedSession.start_time} - {selectedSession.end_time}</div>
+                      </div>
+                      <div>
+                        <span className="text-slate-600">Instructor:</span>
+                        <div className="font-semibold text-slate-900">{selectedSession.instructor || "TBA"}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-neutral-200 rounded-lg p-6">
-            <div className="flex items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-xl font-semibold">Group Photo {enrollmentMode ? 'Enrollment' : 'Attendance'}</h2>
-                <p className="text-sm text-neutral-500 mt-1">
-                  Capture attendance quickly with recognition or assign faces for enrollment.
+          {/* Step 2: Take Photo */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 font-bold text-red-600">2</div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {enrollmentMode ? "Upload Group Photo for Enrollment" : "Take a Group Photo"}
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  {enrollmentMode 
+                    ? "Take a clear photo with all students visible. Faces will be detected and you'll assign each face to a student."
+                    : "Take a clear photo with all students facing the camera. The system will automatically recognize faces."}
                 </p>
-              </div>
-              <Badge variant="outline" className="rounded-full px-3 py-1 text-sm">
-                {enrollmentMode ? 'Enrollment mode' : 'Attendance mode'}
-              </Badge>
-            </div>
 
-            {!uploadMode && confirmedMatches.length === 0 && extractedFaces.length === 0 && (
-              <>
-                <div className="aspect-video rounded-3xl bg-neutral-100 flex items-center justify-center mb-4">
-                  <div className="text-center">
-                    <Upload className="h-14 w-14 text-neutral-400 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-neutral-900">
-                      {enrollmentMode
-                        ? 'Upload a group photo and assign students to detected faces.'
-                        : 'Upload a group photo and let the system mark confirmed students automatically.'}
-                    </p>
-                    <p className="text-xs text-neutral-500 mt-2">JPG / PNG up to 10MB</p>
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button
-                    onClick={() => setUploadMode(true)}
-                    className="w-full bg-red-600 hover:bg-red-700"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Group Photo
-                  </Button>
-                  <Button onClick={simulateCamera} variant="outline" className="w-full">
-                    <Camera className="h-4 w-4 mr-2" />
-                    Manual Attendance
-                  </Button>
-                </div>
-              </>
-            )}
-
-            {uploadMode && confirmedMatches.length === 0 && (
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-neutral-300 rounded-3xl p-8 text-center">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                    id="photo-upload"
-                  />
-                  <label htmlFor="photo-upload" className="cursor-pointer">
-                    <Upload className="h-12 w-12 text-neutral-400 mx-auto mb-2" />
-                    <p className="text-sm font-medium text-neutral-900">Click to choose a photo</p>
-                    <p className="text-xs text-neutral-500">JPG, PNG up to 10MB</p>
-                  </label>
-                </div>
-
-                {photoFile && (
-                  <div className="rounded-3xl overflow-hidden border border-neutral-200">
-                    <div className="bg-neutral-50 p-4 text-sm text-neutral-600">
-                      <div className="font-medium text-neutral-900">Selected file</div>
-                      <p>{photoFile.name}</p>
-                      <p>{(photoFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                {!uploadMode && !photoFile && (
+                  <div className="mt-4 space-y-3">
+                    <div className="aspect-video rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center">
+                      <Camera className="h-12 w-12 text-slate-400 mb-3" />
+                      <p className="text-center text-sm font-medium text-slate-900">Ready for a photo</p>
+                      <p className="text-center text-xs text-slate-600 mt-1">Ensure good lighting and all faces are visible</p>
                     </div>
-                    {photoPreviewUrl && !extractedFaces.length && (
-                      <img
-                        src={photoPreviewUrl}
-                        alt="Uploaded group preview"
-                        className="w-full h-auto object-contain"
-                      />
-                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                      id="photo-input"
+                    />
+                    <Button
+                      onClick={() => document.getElementById('photo-input')?.click()}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Choose Photo from Device
+                    </Button>
                   </div>
                 )}
 
-                {successMessage && (
-                  <Alert className="border-green-200 bg-green-50">
-                    <Check className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
-                  </Alert>
+                {photoFile && !isProcessing && !confirmedMatches.length && !extractedFaces.length && (
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-xl border border-slate-200 overflow-hidden">
+                      <img
+                        src={photoPreviewUrl || ""}
+                        alt="Selected photo"
+                        className="w-full h-auto max-h-96 object-cover"
+                      />
+                    </div>
+                    <div className="text-sm text-slate-600">
+                      <div className="font-medium text-slate-900">{photoFile.name}</div>
+                      <div>{(photoFile.size / 1024 / 1024).toFixed(2)} MB</div>
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={processGroupPhoto}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Check className="h-4 w-4 mr-2" />
+                        Recognize Faces
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setPhotoFile(null);
+                          setPhotoPreviewUrl(null);
+                          setProcessError(null);
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {isProcessing && (
+                  <div className="mt-4 text-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-red-600 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-slate-900">Analyzing photo...</p>
+                    <p className="text-xs text-slate-600 mt-1">This may take a few seconds</p>
+                  </div>
                 )}
 
                 {processError && (
-                  <Alert className="border-red-200 bg-red-50">
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-red-800">{processError}</AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button
-                    onClick={processGroupPhoto}
-                    disabled={!photoFile || isProcessing}
-                    className="flex-1 bg-red-600 hover:bg-red-700"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader className="h-4 w-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      "Process Photo"
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setUploadMode(false);
-                      setPhotoFile(null);
-                      setProcessError(null);
-                    }}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {uploadMode && !enrollmentMode && (confirmedMatches.length > 0 || ambiguousMatches.length > 0 || unmatchedFaces.length > 0) && (
-              <div className="space-y-6 rounded-3xl border border-blue-200 bg-blue-50 p-5">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">Recognition Results</h3>
-                    <p className="text-sm text-neutral-600">
-                      {confirmedMatches.length} confirmed • {ambiguousMatches.length} ambiguous • {unmatchedFaces.length} unmatched
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setUploadMode(false);
-                      setConfirmedMatches([]);
-                      setAmbiguousMatches([]);
-                      setUnmatchedFaces([]);
-                      setProcessError(null);
-                      setSuccessMessage(null);
-                    }}
-                  >
-                    Close Results
-                  </Button>
-                </div>
-
-                {confirmedMatches.length > 0 && (
-                  <div className="space-y-3 rounded-3xl border border-green-200 bg-white p-4">
-                    <div className="text-sm font-medium text-green-700">Confirmed Matches</div>
-                    <div className="grid gap-3">
-                      {confirmedMatches.map((match) => (
-                        <div key={match.face_index} className="flex items-center justify-between rounded-2xl border border-green-100 p-3">
-                          <div>
-                            <div className="font-semibold">{match.student.name}</div>
-                            <div className="text-xs text-neutral-500">Confidence: {match.confidence}%</div>
-                          </div>
-                          <Badge variant="outline" className="text-green-700 border-green-200">
-                            Auto-present
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {ambiguousMatches.length > 0 && (
-                  <div className="space-y-3 rounded-3xl border border-amber-200 bg-white p-4">
-                    <div className="text-sm font-medium text-amber-700">Ambiguous Matches</div>
-                    <div className="grid gap-3">
-                      {ambiguousMatches.map((match) => (
-                        <div key={match.face_index} className="rounded-2xl border border-amber-100 p-3">
-                          <div className="flex items-center justify-between gap-4">
-                            <div>
-                              <div className="font-semibold">{match.student.name}</div>
-                              <div className="text-xs text-neutral-500">Confidence: {match.confidence}%</div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => toggleAttendance(match.student.id, true)}
-                                className="bg-green-600 hover:bg-green-700"
-                              >
-                                Present
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => toggleAttendance(match.student.id, false)}
-                              >
-                                Absent
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {unmatchedFaces.length > 0 && (
-                  <div className="rounded-3xl border border-neutral-200 bg-white p-4">
-                    <div className="text-sm font-medium text-slate-900">Unmatched Faces</div>
-                    <p className="text-sm text-neutral-600">
-                      {unmatchedFaces.length} face(s) were not confidently recognized. Please assign or mark attendance manually.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {extractedFaces.length > 0 && photoFile && (
-              <div className="space-y-6">
-                <div className="rounded-3xl border border-neutral-200 overflow-hidden">
-                  <FaceSelectionCanvas
-                    imageFile={photoFile}
-                    faces={extractedFaces.map((face) => ({
-                      ...face,
-                      status: 'unassigned' as const,
-                      assignedStudent: faceAssignments[face.face_index],
-                    }))}
-                    students={students}
-                    onAssignmentChange={(faceIndex, studentId) =>
-                      setFaceAssignments((prev) => ({
-                        ...prev,
-                        [faceIndex]: studentId,
-                      }))
-                    }
-                    assignments={faceAssignments}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-3 pt-4 border-t border-neutral-200 sm:flex-row">
-                  <Button
-                    onClick={enrollFacesFromGroup}
-                    disabled={isSaving || Object.keys(faceAssignments).length === 0}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader className="h-4 w-4 mr-2 animate-spin" />
-                        Enrolling...
-                      </>
-                    ) : (
-                      `Enroll ${Object.values(faceAssignments).filter((id) => id !== -1).length}/${extractedFaces.length} Faces`
-                    )}
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setExtractedFaces([]);
-                      setFaceAssignments({});
-                      setConfirmedMatches([]);
-                      setAmbiguousMatches([]);
-                      setUnmatchedFaces([]);
-                      setPhotoFile(null);
-                      setUploadMode(false);
-                      setProcessError(null);
-                      setSuccessMessage(null);
-                    }}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-white border border-neutral-200 rounded-lg p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-neutral-500">Attendance Summary</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">{presentCount + absentCount} marked</h2>
-              </div>
-              <Badge variant="outline" className="rounded-full px-3 py-1 text-sm">
-                {enrollmentMode ? 'Enrollment' : 'Attendance'}
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              <div className="rounded-3xl bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">Present</p>
-                <p className="mt-3 text-3xl font-semibold text-green-600">{presentCount}</p>
-              </div>
-              <div className="rounded-3xl bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">Absent</p>
-                <p className="mt-3 text-3xl font-semibold text-red-600">{absentCount}</p>
-              </div>
-              <div className="rounded-3xl bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">Pending</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">{students.length - markedCount}</p>
-              </div>
-              <div className="rounded-3xl bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">Detected faces</p>
-                <p className="mt-3 text-3xl font-semibold text-slate-900">{confirmedMatches.length + ambiguousMatches.length + unmatchedFaces.length}</p>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-3xl bg-slate-50 p-4 text-sm text-slate-600">
-              {enrollmentMode
-                ? 'Assign faces to student profiles to grow the AI model. Once enrolled, recognition becomes faster and more accurate.'
-                : 'Auto-detected students are marked present. Review ambiguous and unmatched faces before saving attendance.'}
-            </div>
-          </div>
-
-          <div className="bg-white border border-neutral-200 rounded-lg p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold">Quick actions</h3>
-                <p className="text-sm text-neutral-500">Stay efficient with one-click session controls.</p>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setUploadMode(false);
-                  setPhotoFile(null);
-                  setProcessError(null);
-                  setSuccessMessage(null);
-                  setConfirmedMatches([]);
-                  setAmbiguousMatches([]);
-                  setUnmatchedFaces([]);
-                  setExtractedFaces([]);
-                  setFaceAssignments({});
-                }}
-              >
-                Reset Session
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setEnrollmentMode(!enrollmentMode)}
-              >
-                Switch to {enrollmentMode ? 'Attendance' : 'Enrollment'} Mode
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white border border-neutral-200 rounded-lg p-4">
-          <div className="text-sm text-neutral-500 mb-1">Total Students</div>
-          <div className="text-2xl font-semibold">{students.length}</div>
-        </div>
-        <div className="bg-white border border-neutral-200 rounded-lg p-4">
-          <div className="text-sm text-neutral-500 mb-1">Present</div>
-          <div className="text-2xl font-semibold text-green-600">{presentCount}</div>
-        </div>
-        <div className="bg-white border border-neutral-200 rounded-lg p-4">
-          <div className="text-sm text-neutral-500 mb-1">Absent</div>
-          <div className="text-2xl font-semibold text-red-600">{absentCount}</div>
-        </div>
-      </div>
-
-      {/* Student List */}
-      <div className="bg-white border border-neutral-200 rounded-lg">
-        <div className="p-6 border-b border-neutral-200">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-            <Input
-              placeholder="Search students..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-neutral-50 border-b border-neutral-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Student</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Belt</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Confidence</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {filteredStudents.map((student) => (
-                <tr key={student.id} className="hover:bg-neutral-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center text-sm font-medium">
-                        {student.name.split(' ').map((n) => n[0]).join('')}
+                  <div className="mt-4 rounded-xl bg-red-50 border border-red-200 p-4">
+                    <div className="flex gap-3">
+                      <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-red-900">Something went wrong</p>
+                        <p className="text-sm text-red-700 mt-1">{processError}</p>
                       </div>
-                      <div className="font-medium">{student.name}</div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-neutral-600">{student.belt}</td>
-                  <td className="px-6 py-4 text-sm">
-                    {student.confidence ? (
-                      <span className="text-neutral-900 font-medium">{student.confidence}%</span>
-                    ) : (
-                      <span className="text-neutral-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    {student.status === true && (
-                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">
-                        Present
-                      </span>
-                    )}
-                    {student.status === false && (
-                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700">
-                        Absent
-                      </span>
-                    )}
-                    {student.status === null && (
-                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-neutral-100 text-neutral-600">
-                        Pending
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant={student.status === true ? "default" : "outline"}
-                        onClick={() => toggleAttendance(student.id, true)}
-                        className={student.status === true ? "bg-green-600 hover:bg-green-700" : ""}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={student.status === false ? "default" : "outline"}
-                        onClick={() => toggleAttendance(student.id, false)}
-                        className={student.status === false ? "bg-red-600 hover:bg-red-700" : ""}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
-      <div className="flex justify-end">
-        <Button
-          size="lg"
-          onClick={saveAttendance}
-          disabled={isSaving || markedCount === 0}
-          className="bg-green-600 hover:bg-green-700"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Save Attendance ({presentCount} present{absentCount > 0 ? `, ${absentCount} absent` : ''})
-            </>
+          {/* Step 3: Review & Adjust */}
+          {(confirmedMatches.length > 0 || ambiguousMatches.length > 0 || unmatchedFaces.length > 0 || extractedFaces.length > 0) && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 font-bold text-red-600">3</div>
+                <div className="flex-1">
+                  {!enrollmentMode && (confirmedMatches.length > 0 || ambiguousMatches.length > 0) ? (
+                    <>
+                      <h2 className="text-lg font-semibold text-slate-900">Review Recognition Results</h2>
+                      <p className="mt-1 text-sm text-slate-600">Check the automatically recognized students and make any corrections</p>
+                      
+                      <div className="mt-4 space-y-3">
+                        {confirmedMatches.length > 0 && (
+                          <div className="rounded-xl bg-green-50 border border-green-200 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Check className="h-5 w-5 text-green-600" />
+                              <span className="font-semibold text-green-900">Recognized Students ({confirmedMatches.length})</span>
+                            </div>
+                            <div className="space-y-2">
+                              {confirmedMatches.map((match) => (
+                                <div key={match.face_index} className="flex items-center justify-between bg-white rounded-lg p-3 text-sm">
+                                  <div>
+                                    <div className="font-medium text-slate-900">{match.student.name}</div>
+                                    <div className="text-xs text-slate-600">Confidence: {(match.confidence * 100).toFixed(0)}%</div>
+                                  </div>
+                                  <Badge className="bg-green-100 text-green-700 border-0">✓ Present</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {ambiguousMatches.length > 0 && (
+                          <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <AlertCircle className="h-5 w-5 text-amber-600" />
+                              <span className="font-semibold text-amber-900">Need Confirmation ({ambiguousMatches.length})</span>
+                            </div>
+                            <div className="space-y-3">
+                              {ambiguousMatches.map((match) => (
+                                <div key={match.face_index} className="bg-white rounded-lg p-3 border border-amber-100">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <div className="text-sm">
+                                      <div className="font-medium text-slate-900">{match.student.name}</div>
+                                      <div className="text-xs text-slate-600">Confidence: {(match.confidence * 100).toFixed(0)}%</div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => toggleAttendance(match.student.id, true)}
+                                        className="bg-green-600 hover:bg-green-700 h-8"
+                                      >
+                                        <Check className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => toggleAttendance(match.student.id, false)}
+                                        className="bg-slate-600 hover:bg-slate-700 h-8 text-white"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {unmatchedFaces.length > 0 && (
+                          <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <AlertCircle className="h-5 w-5 text-slate-600" />
+                              <span className="font-semibold text-slate-900">Unrecognized ({unmatchedFaces.length})</span>
+                            </div>
+                            <p className="text-sm text-slate-600">These faces weren't recognized. You can mark them manually in the student list below.</p>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : enrollmentMode ? (
+                    <>
+                      <h2 className="text-lg font-semibold text-slate-900">Assign Faces to Students</h2>
+                      <p className="mt-1 text-sm text-slate-600">Click on each face and select which student it is</p>
+                      
+                      {extractedFaces.length > 0 && (
+                        <>
+                          <div className="mt-4 rounded-xl border border-slate-200 overflow-hidden">
+                            <FaceSelectionCanvas
+                              imageFile={photoFile!}
+                              faces={extractedFaces.map((face) => ({
+                                ...face,
+                                status: 'unassigned' as const,
+                                assignedStudent: faceAssignments[face.face_index],
+                              }))}
+                              students={students}
+                              onAssignmentChange={(faceIndex, studentId) =>
+                                setFaceAssignments((prev) => ({
+                                  ...prev,
+                                  [faceIndex]: studentId,
+                                }))
+                              }
+                              assignments={faceAssignments}
+                            />
+                          </div>
+                          <div className="mt-4 text-sm text-slate-600">
+                            <strong>{Object.values(faceAssignments).filter(id => id !== -1).length}</strong> of <strong>{extractedFaces.length}</strong> faces assigned
+                          </div>
+                          <div className="mt-4 flex gap-3">
+                            <Button
+                              onClick={enrollFacesFromGroup}
+                              disabled={isSaving || Object.values(faceAssignments).filter(id => id !== -1).length === 0}
+                              className="flex-1 bg-green-600 hover:bg-green-700"
+                            >
+                              {isSaving ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Enrolling...
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="h-4 w-4 mr-2" />
+                                  Enroll Assigned Faces
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setExtractedFaces([]);
+                                setFaceAssignments({});
+                                setPhotoFile(null);
+                                setPhotoPreviewUrl(null);
+                                setProcessError(null);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           )}
-        </Button>
+
+          {/* Step 4: Student List for Manual Marking */}
+          {selectedSession && (confirmedMatches.length > 0 || ambiguousMatches.length > 0 || unmatchedFaces.length > 0 || markedCount > 0) && !enrollmentMode && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 font-bold text-red-600">4</div>
+                <div className="flex-1">
+                  <h2 className="text-lg font-semibold text-slate-900">Mark Remaining Students</h2>
+                  <p className="mt-1 text-sm text-slate-600">Click to mark any students not recognized</p>
+
+                  <div className="mt-4">
+                    <div className="relative mb-4">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Search students..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                      {filteredStudents.map((student) => (
+                        <div key={student.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50">
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-900">{student.name}</div>
+                            <div className="text-xs text-slate-600">{student.belt}</div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant={student.status === true ? "default" : "outline"}
+                              onClick={() => toggleAttendance(student.id, true)}
+                              className={student.status === true ? "bg-green-600 hover:bg-green-700 h-8" : "h-8"}
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={student.status === false ? "default" : "outline"}
+                              onClick={() => toggleAttendance(student.id, false)}
+                              className={student.status === false ? "bg-slate-600 hover:bg-slate-700 h-8 text-white" : "h-8"}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar: Summary and Actions */}
+        <div className="space-y-6">
+          {/* Mode Selector */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="font-semibold text-slate-900 mb-4">Mode</h3>
+            <div className="space-y-2">
+              <Button
+                variant={!enrollmentMode ? "default" : "outline"}
+                onClick={() => setEnrollmentMode(false)}
+                className="w-full justify-start"
+              >
+                <Check className="h-4 w-4 mr-2" />
+                Attendance Mode
+              </Button>
+              <Button
+                variant={enrollmentMode ? "default" : "outline"}
+                onClick={() => setEnrollmentMode(true)}
+                className="w-full justify-start"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Enrollment Mode
+              </Button>
+            </div>
+            <p className="text-xs text-slate-600 mt-3">
+              {enrollmentMode 
+                ? "Add new faces to recognize students better"
+                : "Mark attendance for today's session"}
+            </p>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="font-semibold text-slate-900 mb-4">Summary</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">Total Students</span>
+                <span className="font-bold text-slate-900">{students.length}</span>
+              </div>
+              <div className="h-px bg-slate-200" />
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">Present</span>
+                <span className="font-bold text-green-600">{presentCount}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">Absent</span>
+                <span className="font-bold text-red-600">{absentCount}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">Not Marked</span>
+                <span className="font-bold text-slate-900">{students.length - markedCount}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Save Button */}
+          {!enrollmentMode && markedCount > 0 && selectedSession && (
+            <Button
+              onClick={saveAttendance}
+              disabled={isSaving}
+              className="w-full bg-green-600 hover:bg-green-700 text-white h-12 font-semibold"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Attendance
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* Success Message */}
+          {successMessage && (
+            <div className="rounded-xl bg-green-50 border border-green-200 p-4">
+              <div className="flex gap-3">
+                <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-green-900">Success!</p>
+                  <p className="text-sm text-green-700 mt-1">{successMessage}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+

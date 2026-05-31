@@ -19,6 +19,7 @@ import {
   FileText,
   ShoppingCart,
   ClipboardList,
+  Zap,
   LucideIcon,
 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -41,6 +42,7 @@ const navigationConfig: Record<DashboardRole, NavItem[]> = {
     { name: "Schedule", path: "/dashboard/schedule", icon: Calendar },
     { name: "Attendance", path: "/dashboard/attendance", icon: Calendar },
     { name: "Performance", path: "/dashboard/performance/pose", icon: Award },
+    { name: "Sparring", path: "/dashboard/performance/sparring", icon: Zap },
     { name: "Gamification", path: "/dashboard/gamification", icon: Trophy },
     { name: "Shop", path: "/dashboard/shop", icon: ShoppingCart },
     { name: "Reports", path: "/dashboard/analytics/reports", icon: FileText },
@@ -53,6 +55,7 @@ const navigationConfig: Record<DashboardRole, NavItem[]> = {
     { name: "Schedule", path: "/dashboard/schedule", icon: Calendar },
     { name: "Attendance", path: "/dashboard/attendance", icon: Calendar },
     { name: "Performance", path: "/dashboard/performance/pose", icon: Award },
+    { name: "Sparring", path: "/dashboard/performance/sparring", icon: Zap },
     { name: "Gamification", path: "/dashboard/gamification", icon: Trophy },
     { name: "Shop", path: "/dashboard/shop", icon: ShoppingCart },
     { name: "Reports", path: "/dashboard/analytics/reports", icon: FileText },
@@ -143,8 +146,8 @@ export function DashboardLayout() {
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center">
-                <Award className="h-5 w-5 text-white" />
+              <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
+                <Award className="h-5 w-5 text-primary-foreground" />
               </div>
               <span className="font-semibold text-lg">Karate Management</span>
             </div>
@@ -155,7 +158,7 @@ export function DashboardLayout() {
               <Button variant="ghost" size="icon" className="relative">
                 <ShoppingCart className="h-5 w-5" />
                 {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
                     {cartItemCount > 99 ? '99+' : cartItemCount}
                   </span>
                 )}
@@ -165,7 +168,7 @@ export function DashboardLayout() {
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5" />
                 {unreadNotificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-5 w-5 flex items-center justify-center">
                     {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
                   </span>
                 )}
@@ -204,7 +207,7 @@ export function DashboardLayout() {
                 <div
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                     isActive
-                      ? "bg-red-50 text-red-600"
+                      ? "bg-primary/10 text-primary"
                       : "text-neutral-700 hover:bg-neutral-50"
                   }`}
                 >

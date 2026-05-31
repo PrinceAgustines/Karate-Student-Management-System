@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router";
 import {
   Users,
@@ -9,6 +9,8 @@ import {
   AlertCircle,
   CheckCircle,
   Target,
+  RefreshCw,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "../../ui/button";
 import { KPICard } from "../../ui/KPICard";
@@ -99,19 +101,38 @@ export function AdminDashboard() {
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      setError(null);
+      const [studentsData, sessionsData, analyticsData] = await Promise.all([
+        fetchStudents().catch(() => []),
+        fetchSessions().catch(() => []),
+        fetchAnalyticsOverview().catch(() => null),
+      ]);
+      setStudents(studentsData || []);
+      setSessions(sessionsData || []);
+      setAnalytics(analyticsData);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to load dashboard data";
+      setError(errorMessage);
+      console.error("Dashboard load error:", err);
+    } finally {
+      setAnalyticsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    Promise.all([
-      fetchStudents().catch(() => []),
-      fetchSessions().catch(() => []),
-      fetchAnalyticsOverview().catch(() => null),
-    ]).then(([studentsData, sessionsData, analyticsData]) => {
-      setStudents(studentsData);
-      setSessions(sessionsData);
-      setAnalytics(analyticsData);
-      setAnalyticsLoading(false);
-    });
-  }, []);
+    loadData();
+  }, [loadData]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadData();
+  }, [loadData]);
 
   // Core KPIs
   const primaryKPIs = useMemo(() => {
@@ -225,205 +246,279 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-8 pb-8">
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-red-900">Error Loading Dashboard</h3>
+            <p className="text-sm text-red-800 mt-1">{error}</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-neutral-900">Dashboard</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          System overview & key performance indicators
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-neutral-900">System Dashboard</h1>
+          <p className="text-sm text-neutral-600 mt-2">
+            View overall system health, student progress, and attendance trends
+          </p>
+        </div>
+        <Button
+          onClick={handleRefresh}
+          disabled={isRefreshing || analyticsLoading}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          {isRefreshing ? "Refreshing..." : "Refresh"}
+        </Button>
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Link
-          to="/dashboard/students"
-          className="flex items-center justify-between p-3 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 transition"
-        >
-          <div>
-            <div className="text-xs text-neutral-500 font-medium">Manage</div>
-            <div className="text-sm font-semibold text-neutral-900">Students</div>
-          </div>
-          <ArrowRight className="h-4 w-4 text-neutral-400" />
-        </Link>
-        <Link
-          to="/dashboard/attendance/tracker"
-          className="flex items-center justify-between p-3 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 transition"
-        >
-          <div>
-            <div className="text-xs text-neutral-500 font-medium">Track</div>
-            <div className="text-sm font-semibold text-neutral-900">Attendance</div>
-          </div>
-          <ArrowRight className="h-4 w-4 text-neutral-400" />
-        </Link>
-        <Link
-          to="/dashboard/schedule"
-          className="flex items-center justify-between p-3 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 transition"
-        >
-          <div>
-            <div className="text-xs text-neutral-500 font-medium">Plan</div>
-            <div className="text-sm font-semibold text-neutral-900">Sessions</div>
-          </div>
-          <ArrowRight className="h-4 w-4 text-neutral-400" />
-        </Link>
-        <Link
-          to="/dashboard/shop"
-          className="flex items-center justify-between p-3 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 transition"
-        >
-          <div>
-            <div className="text-xs text-neutral-500 font-medium">Shop</div>
-            <div className="text-sm font-semibold text-neutral-900">Inventory</div>
-          </div>
-          <ArrowRight className="h-4 w-4 text-neutral-400" />
-        </Link>
+      <div>
+        <h2 className="text-sm font-semibold text-neutral-700 mb-3 flex items-center gap-2">
+          <span>Quick Actions</span>
+          <span className="text-xs text-neutral-500 font-normal">Jump to common tasks</span>
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Link
+            to="/dashboard/students"
+            className="flex flex-col items-start justify-between p-4 rounded-lg border border-neutral-200 bg-white hover:bg-blue-50 hover:border-blue-200 transition group"
+          >
+            <Users className="h-5 w-5 text-blue-600 mb-2 group-hover:scale-110 transition" />
+            <div>
+              <div className="text-xs text-neutral-500 font-medium">Manage</div>
+              <div className="text-sm font-semibold text-neutral-900">Students</div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-neutral-300 group-hover:text-blue-600 self-end mt-2 transition" />
+          </Link>
+          <Link
+            to="/dashboard/attendance/tracker"
+            className="flex flex-col items-start justify-between p-4 rounded-lg border border-neutral-200 bg-white hover:bg-green-50 hover:border-green-200 transition group"
+          >
+            <Calendar className="h-5 w-5 text-green-600 mb-2 group-hover:scale-110 transition" />
+            <div>
+              <div className="text-xs text-neutral-500 font-medium">Track</div>
+              <div className="text-sm font-semibold text-neutral-900">Attendance</div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-neutral-300 group-hover:text-green-600 self-end mt-2 transition" />
+          </Link>
+          <Link
+            to="/dashboard/schedule"
+            className="flex flex-col items-start justify-between p-4 rounded-lg border border-neutral-200 bg-white hover:bg-purple-50 hover:border-purple-200 transition group"
+          >
+            <Calendar className="h-5 w-5 text-purple-600 mb-2 group-hover:scale-110 transition" />
+            <div>
+              <div className="text-xs text-neutral-500 font-medium">Plan</div>
+              <div className="text-sm font-semibold text-neutral-900">Sessions</div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-neutral-300 group-hover:text-purple-600 self-end mt-2 transition" />
+          </Link>
+          <Link
+            to="/dashboard/shop"
+            className="flex flex-col items-start justify-between p-4 rounded-lg border border-neutral-200 bg-white hover:bg-orange-50 hover:border-orange-200 transition group"
+          >
+            <Award className="h-5 w-5 text-orange-600 mb-2 group-hover:scale-110 transition" />
+            <div>
+              <div className="text-xs text-neutral-500 font-medium">Manage</div>
+              <div className="text-sm font-semibold text-neutral-900">Inventory</div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-neutral-300 group-hover:text-orange-600 self-end mt-2 transition" />
+          </Link>
+        </div>
       </div>
 
       {/* Primary KPIs */}
       <div>
-        <h2 className="text-lg font-semibold text-neutral-900 mb-4">Core Metrics</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {primaryKPIs.map((kpi) => (
-            <KPICard
-              key={kpi.title}
-              title={kpi.title}
-              value={kpi.value}
-              unit={kpi.unit}
-              icon={kpi.icon}
-              color={kpi.color}
-              size="lg"
-              description={kpi.description}
-            />
-          ))}
-        </div>
+        <h2 className="text-lg font-semibold text-neutral-900 mb-1">Key Metrics</h2>
+        <p className="text-sm text-neutral-600 mb-4">High-level overview of your dojo's performance</p>
+        {analyticsLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-40 bg-neutral-100 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {primaryKPIs.map((kpi) => (
+              <KPICard
+                key={kpi.title}
+                title={kpi.title}
+                value={kpi.value}
+                unit={kpi.unit}
+                icon={kpi.icon}
+                color={kpi.color}
+                size="lg"
+                description={kpi.description}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Attendance Trend */}
-        <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-lg p-6">
-          <div className="mb-4">
-            <h3 className="font-semibold text-neutral-900">Attendance Trend</h3>
-            <p className="text-xs text-neutral-500">Last 6 weeks</p>
-          </div>
-          {attendanceData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={attendanceData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-                <XAxis dataKey="week" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="attendance"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ fill: "#3b82f6", r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-64 flex items-center justify-center text-sm text-neutral-500">
-              No data available
+      <div>
+        <h2 className="text-lg font-semibold text-neutral-900 mb-4">Trends & Analytics</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Attendance Trend */}
+          <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-lg p-6">
+            <div className="mb-4">
+              <h3 className="font-semibold text-neutral-900">Attendance Trend</h3>
+              <p className="text-xs text-neutral-600 mt-1">
+                Shows overall class attendance percentage over the last 6 weeks
+              </p>
             </div>
-          )}
-        </div>
+            {analyticsLoading ? (
+              <div className="h-64 bg-neutral-100 rounded animate-pulse" />
+            ) : attendanceData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={attendanceData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+                  <XAxis dataKey="week" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value) => {
+                    const numeric = typeof value === "number" ? value : Number(value);
+                    return Number.isFinite(numeric) ? `${numeric.toFixed(1)}%` : String(value);
+                  }} />
+                  <Line
+                    type="monotone"
+                    dataKey="attendance"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ fill: "#3b82f6", r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-sm text-neutral-500">
+                No attendance data available yet
+              </div>
+            )}
+          </div>
 
-        {/* Belt Distribution */}
-        <div className="bg-white border border-neutral-200 rounded-lg p-6">
-          <div className="mb-4">
-            <h3 className="font-semibold text-neutral-900">Belt Distribution</h3>
-            <p className="text-xs text-neutral-500">Current ranks</p>
-          </div>
-          {beltDistribution.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={beltDistribution}
-                  dataKey="count"
-                  nameKey="belt"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={{ fontSize: 12 }}
-                >
-                  {beltDistribution.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-64 flex items-center justify-center text-sm text-neutral-500">
-              No data available
+          {/* Belt Distribution */}
+          <div className="bg-white border border-neutral-200 rounded-lg p-6">
+            <div className="mb-4">
+              <h3 className="font-semibold text-neutral-900">Belt Distribution</h3>
+              <p className="text-xs text-neutral-600 mt-1">
+                Current belt rank breakdown of all students
+              </p>
             </div>
-          )}
+            {analyticsLoading ? (
+              <div className="h-64 bg-neutral-100 rounded animate-pulse" />
+            ) : beltDistribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={beltDistribution}
+                    dataKey="count"
+                    nameKey="belt"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={{ fontSize: 12 }}
+                  >
+                    {beltDistribution.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-sm text-neutral-500">
+                No belt distribution data available
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Secondary KPIs */}
       <div>
-        <h2 className="text-lg font-semibold text-neutral-900 mb-4">
-          Diagnostic Metrics
-        </h2>
+        <h2 className="text-lg font-semibold text-neutral-900 mb-1">Action Items</h2>
+        <p className="text-sm text-neutral-600 mb-4">Metrics that need your attention</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {secondaryKPIs.map((kpi) => (
-            <KPICard
-              key={kpi.title}
-              title={kpi.title}
-              value={kpi.value}
-              unit={kpi.unit}
-              icon={kpi.icon}
-              color={kpi.color}
-              size="md"
-            />
-          ))}
+          {analyticsLoading ? (
+            [1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-24 bg-neutral-100 rounded-lg animate-pulse" />
+            ))
+          ) : (
+            secondaryKPIs.map((kpi) => (
+              <KPICard
+                key={kpi.title}
+                title={kpi.title}
+                value={kpi.value}
+                unit={kpi.unit}
+                icon={kpi.icon}
+                color={kpi.color}
+                size="md"
+              />
+            ))
+          )}
         </div>
       </div>
 
       {/* Performance Trend */}
-      {performanceData.length > 0 && (
+      {analyticsLoading ? (
+        <div className="bg-white border border-neutral-200 rounded-lg p-6">
+          <div className="h-80 bg-neutral-100 rounded animate-pulse" />
+        </div>
+      ) : performanceData.length > 0 ? (
         <div className="bg-white border border-neutral-200 rounded-lg p-6">
           <div className="mb-4">
             <h3 className="font-semibold text-neutral-900">Performance Trend</h3>
-            <p className="text-xs text-neutral-500">Overall average over time</p>
+            <p className="text-xs text-neutral-600 mt-1">
+              Average student performance scores across all evaluation categories
+            </p>
           </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={performanceData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
               <XAxis dataKey="period" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Bar dataKey="overall_average" fill="#10b981" />
+              <Tooltip formatter={(value) => {
+                const numeric = typeof value === "number" ? value : Number(value);
+                return Number.isFinite(numeric) ? `${numeric.toFixed(1)}%` : String(value);
+              }} />
+              <Bar dataKey="overall_average" fill="#10b981" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-      )}
+      ) : null}
 
       {/* Recommendations */}
-      {!analyticsLoading && recommendations.length > 0 && (
+      {analyticsLoading ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="h-32 bg-blue-100 rounded animate-pulse" />
+        </div>
+      ) : recommendations.length > 0 ? (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <div className="flex items-start gap-3 mb-4">
             <CheckCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-neutral-900">
-                Recommended Actions
-              </h3>
-              <p className="text-xs text-neutral-600">
-                Based on current data analysis
+              <h3 className="font-semibold text-neutral-900">Suggested Actions</h3>
+              <p className="text-xs text-neutral-700 mt-1">
+                Based on your current data, we recommend the following:
               </p>
             </div>
           </div>
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {recommendations.map((rec, idx) => (
-              <li key={idx} className="text-sm text-neutral-700 flex gap-2">
-                <span className="text-blue-600 font-bold flex-shrink-0">•</span>
-                <span>{rec}</span>
+              <li key={idx} className="text-sm text-neutral-800 flex gap-3">
+                <span className="text-blue-600 font-bold flex-shrink-0 pt-1">
+                  {idx + 1}.
+                </span>
+                <span className="leading-relaxed">{rec}</span>
               </li>
             ))}
           </ul>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

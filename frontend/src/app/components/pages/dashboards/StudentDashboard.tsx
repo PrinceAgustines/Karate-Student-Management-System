@@ -233,25 +233,25 @@ export function StudentDashboard() {
         label: "Current Belt",
         value: student?.current_belt_rank || "--",
         icon: Award,
-        color: "text-green-600",
+        color: "text-success",
       },
       {
         label: "Overall Score",
         value: performanceSummary ? `${performanceSummary.overall_average.toFixed(1)}%` : "--",
         icon: TrendingUp,
-        color: "text-purple-600",
+        color: "text-accent",
       },
       {
         label: "Belt Readiness",
         value: beltProgression ? `${beltProgression.overall_readiness_percentage.toFixed(1)}%` : "--",
         icon: Target,
-        color: "text-amber-600",
+        color: "text-warning",
       },
       {
         label: "Sessions Attended",
         value: performanceSummary ? performanceSummary.sessions_attended : 0,
         icon: Calendar,
-        color: "text-blue-600",
+        color: "text-primary",
       },
     ];
 
@@ -262,7 +262,7 @@ export function StudentDashboard() {
           label: "Current Level",
           value: `Lv. ${gamification.profile.level}`,
           icon: Zap,
-          color: "text-fuchsia-600",
+          color: "text-info",
         },
       ];
     }
@@ -400,12 +400,12 @@ export function StudentDashboard() {
             <p className="text-sm text-neutral-600 mt-1">Complete the requirements below to advance</p>
           </div>
           <div className="text-right">
-            <p className="text-4xl font-bold text-indigo-600">{beltProgress.progress}%</p>
+            <p className="text-4xl font-bold text-primary">{beltProgress.progress}%</p>
             <p className="text-xs text-neutral-600 mt-1">Ready</p>
           </div>
         </div>
         <div className="w-full bg-neutral-200 rounded-full h-3 mb-4 overflow-hidden">
-          <div className="bg-gradient-to-r from-indigo-500 to-blue-500 h-3 rounded-full transition-all" style={{ width: `${beltProgress.progress}%` }} />
+          <div className="bg-gradient-to-r from-primary to-secondary h-3 rounded-full transition-all" style={{ width: `${beltProgress.progress}%` }} />
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
@@ -424,8 +424,8 @@ export function StudentDashboard() {
         </div>
         
         {beltProgression?.estimated_promotion_date && (
-          <div className="mt-4 bg-white rounded-lg p-3 border border-indigo-200">
-            <p className="text-sm text-neutral-600">You could get promoted around <span className="font-bold text-indigo-600">{new Date(beltProgression.estimated_promotion_date).toLocaleDateString()}</span> if you keep training!</p>
+          <div className="mt-4 bg-white rounded-lg p-3 border border-primary/30">
+            <p className="text-sm text-neutral-600">You could get promoted around <span className="font-bold text-primary">{new Date(beltProgression.estimated_promotion_date).toLocaleDateString()}</span> if you keep training!</p>
           </div>
         )}
       </div>
@@ -478,13 +478,13 @@ export function StudentDashboard() {
           {performanceSummary && (
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 p-5">
               <h3 className="font-bold text-neutral-900 mb-3">Your Overall Score</h3>
-              <div className="text-4xl font-bold text-green-600 mb-3">{performanceSummary.overall_average?.toFixed(0) || "--"}%</div>
+              <div className="text-4xl font-bold text-success mb-3">{performanceSummary.overall_average?.toFixed(0) || "--"}%</div>
               
               <div className="space-y-3">
                 {[
-                  { label: "Kata", value: performanceSummary.kata_average, color: "bg-red-500" },
-                  { label: "Kumite", value: performanceSummary.kumite_average, color: "bg-blue-500" },
-                  { label: "Discipline", value: performanceSummary.discipline_average, color: "bg-emerald-500" },
+                  { label: "Kata", value: performanceSummary.kata_average, color: "bg-primary" },
+                  { label: "Kumite", value: performanceSummary.kumite_average, color: "bg-info" },
+                  { label: "Discipline", value: performanceSummary.discipline_average, color: "bg-success" },
                 ].map((item) => (
                   <div key={item.label}>
                     <div className="flex justify-between text-sm font-medium mb-1">
@@ -520,7 +520,7 @@ export function StudentDashboard() {
           )}
 
           {beltProgression?.notes && (
-            <div className="bg-blue-50 rounded-xl border border-blue-200 p-4 shadow-sm">
+            <div className="bg-info/10 rounded-xl border border-info/30 p-4 shadow-sm">
               <p className="text-sm font-semibold text-neutral-700 mb-2">💬 Instructor's Note</p>
               <p className="text-sm text-neutral-700">{beltProgression.notes}</p>
             </div>
@@ -530,7 +530,7 @@ export function StudentDashboard() {
 
       {/* Badges & Rewards */}
       {gamification && (
-        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6 shadow-sm">
+        <div className="bg-gradient-to-r from-primary/5 to-secondary/5 border border-primary/30 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-2xl font-bold">🎮 Achievements & Rewards</h2>
@@ -539,13 +539,13 @@ export function StudentDashboard() {
           </div>
 
           {/* XP Progress */}
-          <div className="bg-white rounded-xl p-4 mb-5 border border-purple-200">
+          <div className="bg-white rounded-xl p-4 mb-5 border border-primary/30">
             <div className="flex items-center justify-between mb-2">
               <span className="font-semibold text-neutral-700">Experience Points</span>
-              <span className="font-bold text-purple-600">{gamification.profile.current_xp} / {gamification.profile.next_level_xp} XP</span>
+              <span className="font-bold text-primary">{gamification.profile.current_xp} / {gamification.profile.next_level_xp} XP</span>
             </div>
             <div className="w-full bg-neutral-200 rounded-full h-3 overflow-hidden">
-              <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full" style={{ width: `${xpProgress}%` }} />
+              <div className="bg-gradient-to-r from-primary to-secondary h-3 rounded-full" style={{ width: `${xpProgress}%` }} />
             </div>
             <p className="text-xs text-neutral-600 mt-2">{xpProgress}% to next level</p>
           </div>

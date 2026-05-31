@@ -76,21 +76,21 @@ export function BeltProgressionManagement({
     });
 
   const getReadinessColor = (readiness: number) => {
-    if (readiness >= 85) return "bg-green-100";
-    if (readiness >= 70) return "bg-yellow-100";
-    if (readiness >= 50) return "bg-orange-100";
-    return "bg-red-100";
+    if (readiness >= 85) return "bg-success/20";
+    if (readiness >= 70) return "bg-warning/20";
+    if (readiness >= 50) return "bg-accent/20";
+    return "bg-primary/20";
   };
 
   const getStatusBadgeColor = (status: string) => {
     const statusColors: Record<string, string> = {
-      not_ready: "bg-gray-100 text-gray-800",
-      in_progress: "bg-blue-100 text-blue-800",
-      ready: "bg-yellow-100 text-yellow-800",
-      tested: "bg-purple-100 text-purple-800",
-      promoted: "bg-green-100 text-green-800",
+      not_ready: "bg-muted text-muted-foreground",
+      in_progress: "bg-secondary text-secondary-foreground",
+      ready: "bg-warning text-warning-foreground",
+      tested: "bg-accent text-accent-foreground",
+      promoted: "bg-success text-success-foreground",
     };
-    return statusColors[status] || "bg-gray-100 text-gray-800";
+    return statusColors[status] || "bg-muted text-muted-foreground";
   };
 
   return (
@@ -107,44 +107,44 @@ export function BeltProgressionManagement({
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600">
+              <div className="text-3xl font-bold text-primary">
                 {students.length}
               </div>
-              <p className="text-sm text-neutral-600">Total Students</p>
+              <p className="text-sm text-muted-foreground">Total Students</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-yellow-600">
+              <div className="text-3xl font-bold text-warning">
                 {students.filter((s) => s.readiness_status === "ready").length}
               </div>
-              <p className="text-sm text-neutral-600">Ready for Testing</p>
+              <p className="text-sm text-muted-foreground">Ready for Testing</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-green-600">
+              <div className="text-3xl font-bold text-success">
                 {students.filter((s) => s.readiness_status === "promoted").length}
               </div>
-              <p className="text-sm text-neutral-600">Recently Promoted</p>
+              <p className="text-sm text-muted-foreground">Recently Promoted</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-orange-600">
+              <div className="text-3xl font-bold text-accent">
                 {(
                   students.reduce((sum, s) => sum + s.overall_readiness, 0) /
                   Math.max(1, students.length)
                 ).toFixed(0)}
                 %
               </div>
-              <p className="text-sm text-neutral-600">Avg Readiness</p>
+              <p className="text-sm text-muted-foreground">Avg Readiness</p>
             </div>
           </CardContent>
         </Card>
@@ -360,11 +360,11 @@ export function BeltProgressionManagement({
                         <p className="font-semibold text-neutral-900">
                           {student.name}
                         </p>
-                        <p className="text-sm text-neutral-600">
+                        <p className="text-sm text-muted-foreground">
                           {student.current_belt} → {student.target_belt}
                         </p>
                       </div>
-                      <Badge className="bg-green-100 text-green-800">
+                      <Badge className="bg-success text-success-foreground">
                         <CheckCircle2 className="w-3 h-3 mr-1" />
                         Ready
                       </Badge>
@@ -394,7 +394,7 @@ export function BeltProgressionManagement({
 
       {/* Student Detail Modal / Sidebar */}
       {selectedStudent && (
-        <Card className="border-blue-300 bg-blue-50">
+        <Card className="border-primary/30 bg-primary/5">
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>

@@ -226,7 +226,7 @@ export function ShoppingCart() {
                   <span>₱{cart.total_price.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Shipping</span>
+                  <span>Pickup</span>
                   <span>Meetup at Dojo</span>
                 </div>
                 <div className="flex justify-between text-sm">
