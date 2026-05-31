@@ -69,14 +69,46 @@ class FacialRecognitionService:
 
         # Try to import face-recognition for encoding
         self.face_recognition = None
-        # Temporarily disabled due to Python 3.14 compatibility issues
-        # try:
-        #     import face_recognition
-        #     self.face_recognition = face_recognition
-        #     logger.info("face-recognition library available for face encoding")
-        # except ImportError:
-        #     logger.warning("face-recognition library not available for encoding")
+        try:
+            import face_recognition
+            self.face_recognition = face_recognition
+            logger.info("face-recognition library available for face encoding")
+        except ImportError as e:
+            logger.warning(f"face-recognition library not available for encoding: {e}")
 
+    def _decode_face_encoding(self, encoding_b64: str) -> Optional[np.ndarray]:
+        """Decode stored face encodings safely, handling float32 and legacy float64 encodings."""
+        if not encoding_b64:
+            return None
+        try:
+            decoded = base64.b64decode(encoding_b64)
+        except Exception as e:
+            logger.warning(f"Failed to decode face encoding from base64: {e}")
+            return None
+
+        if len(decoded) == 0:
+            return None
+
+        arr32 = None
+        try:
+            arr32 = np.frombuffer(decoded, dtype=np.float32)
+        except Exception:
+            arr32 = None
+
+        if arr32 is not None and arr32.size == 128:
+            return arr32
+
+        try:
+            arr64 = np.frombuffer(decoded, dtype=np.float64)
+            if arr64.size == 128:
+                return arr64.astype(np.float32)
+        except Exception:
+            pass
+
+        if arr32 is not None and arr32.size > 0:
+            return arr32
+
+        return None
 
 
     def detect_faces(self, image: np.ndarray) -> List[Tuple[int, int, int, int]]:
@@ -89,21 +121,22 @@ class FacialRecognitionService:
         Returns:
             List of face locations as (top, right, bottom, left) tuples
         """
+        # Convert images loaded through PIL to RGB; keep alpha if present
+        if image.ndim == 3 and image.shape[2] == 4:
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+        elif image.ndim == 3 and image.shape[2] == 3:
+            image_rgb = image
+        else:
+            image_rgb = image
+
         # Try MediaPipe first (more accurate than Haar cascades)
         if self.use_mediapipe and self.mediapipe_detector is not None:
             try:
-                # Convert BGR to RGB if needed
-                if image.ndim == 3 and image.shape[2] == 3:
-                    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                elif image.ndim == 3 and image.shape[2] == 4:
-                    image_rgb = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
-                else:
-                    image_rgb = image
-
                 if hasattr(self.mediapipe_detector, 'detect') and self.mediapipe_image is not None:
                     mp_image = self.mediapipe_image.Image(
                         self.mediapipe_image.ImageFormat.SRGB,
-                        image_rgb,
+                        (image_rgb if image_rgb.dtype == np.uint8 else
+                         (image_rgb * 255).astype(np.uint8) if np.nanmax(image_rgb) <= 1.0 else image_rgb.astype(np.uint8)),
                     )
                     results = self.mediapipe_detector.detect(mp_image)
                 else:
@@ -130,9 +163,20 @@ class FacialRecognitionService:
                         face_locations.append((top, right, bottom, left))
 
                 logger.info(f"MediaPipe detected {len(face_locations)} faces")
-                return face_locations
+                if face_locations:
+                    return face_locations
             except Exception as exc:
                 logger.warning(f"MediaPipe detection failed: {exc}")
+
+        # Fallback to face_recognition detection if available
+        if self.face_recognition is not None:
+            try:
+                face_locations = self.face_recognition.face_locations(image_rgb)
+                logger.info(f"face_recognition detected {len(face_locations)} faces")
+                if face_locations:
+                    return face_locations
+            except Exception as exc:
+                logger.warning(f"face_recognition detection failed: {exc}")
 
         # Fallback to OpenCV Haar cascades
         logger.info("Using Haar cascades fallback for face detection")
@@ -202,6 +246,8 @@ class FacialRecognitionService:
     def encode_face(self, image: np.ndarray, face_location: Tuple[int, int, int, int]) -> Optional[np.ndarray]:
         """
         Generate face encoding for a detected face.
+        Primary: face-recognition library (128-element)
+        Fallback: MediaPipe landmarks (consistent with detection)
 
         Args:
             image: numpy array of image
@@ -210,16 +256,39 @@ class FacialRecognitionService:
         Returns:
             Face encoding as numpy array, or None if encoding fails
         """
+        # PRIMARY METHOD: Use face-recognition library (128-element encoding)
+        logger.debug(f"encode_face called. face_recognition available: {self.face_recognition is not None}")
         if self.face_recognition is not None:
             try:
-                # Try using face-recognition if available
-                encodings = self.face_recognition.face_encodings(image, [face_location])
-                if encodings:
-                    return encodings[0]
+                # Ensure image is proper format for face-recognition
+                if image.ndim != 3 or image.shape[2] not in [3, 4]:
+                    logger.warning(f"Invalid image format for face-recognition: shape={image.shape}")
+                else:
+                    # Convert to RGB if needed
+                    if image.shape[2] == 4:
+                        image_rgb = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+                    elif image.dtype != np.uint8:
+                        # Ensure uint8 type
+                        if image.max() <= 1.0:
+                            image_rgb = (image * 255).astype(np.uint8)
+                        else:
+                            image_rgb = image.astype(np.uint8)
+                    else:
+                        image_rgb = image
+                    
+                    # Generate encoding using face-recognition
+                    encodings = self.face_recognition.face_encodings(image_rgb, [face_location])
+                    if encodings and len(encodings) > 0:
+                        encoding = np.asarray(encodings[0], dtype=np.float32)
+                        if encoding is not None and len(encoding) == 128:
+                            logger.info(f"✓ encode_face: Using PRIMARY METHOD - face-recognition (128-element)")
+                            return encoding
+                        else:
+                            logger.warning(f"encode_face: face-recognition returned invalid encoding: {len(encoding) if encoding is not None else 'None'}")
             except Exception as e:
-                logger.warning(f"face-recognition encoding failed: {e}")
+                logger.warning(f"encode_face: face-recognition encoding failed: {e}, trying fallback")
 
-        # Fallback: Use MediaPipe face landmarks as features for encoding
+        # FALLBACK METHOD: Use MediaPipe face landmarks as features
         if self.use_mediapipe and self.mediapipe_detector is not None:
             try:
                 top, right, bottom, left = face_location
@@ -227,11 +296,18 @@ class FacialRecognitionService:
 
                 # Convert to RGB
                 if face_image.ndim == 3 and face_image.shape[2] == 3:
-                    face_rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+                    face_rgb = face_image
                 elif face_image.ndim == 3 and face_image.shape[2] == 4:
                     face_rgb = cv2.cvtColor(face_image, cv2.COLOR_RGBA2RGB)
                 else:
                     face_rgb = face_image
+
+                # Ensure uint8 type
+                if face_rgb.dtype != np.uint8:
+                    if face_rgb.max() <= 1.0:
+                        face_rgb = (face_rgb * 255).astype(np.uint8)
+                    else:
+                        face_rgb = face_rgb.astype(np.uint8)
 
                 if hasattr(self.mediapipe_detector, 'detect') and self.mediapipe_image is not None:
                     mp_image = self.mediapipe_image.Image(
@@ -242,18 +318,20 @@ class FacialRecognitionService:
                 else:
                     raise RuntimeError('Unsupported MediaPipe detector interface')
 
-                if results and getattr(results, 'detections', None):
+                if results and getattr(results, 'detections', None) and len(results.detections) > 0:
                     detection = results.detections[0]
                     landmarks = getattr(detection.location_data, 'relative_keypoints', None)
-                    if landmarks:
+                    if landmarks and len(landmarks) > 0:
                         encoding = []
                         for kp in landmarks:
                             encoding.extend([kp.x, kp.y, getattr(kp, 'z', 0.0)])
-                        return np.array(encoding, dtype=np.float32)
+                        result_encoding = np.array(encoding, dtype=np.float32)
+                        logger.info(f"✓ encode_face: Using FALLBACK 1 - MediaPipe landmarks ({len(result_encoding)} elements)")
+                        return result_encoding
             except Exception as e:
-                logger.warning(f"MediaPipe encoding failed: {e}")
+                logger.warning(f"encode_face: MediaPipe encoding failed: {e}")
 
-        # Fallback: Create simple hash-based encoding from pixel data
+        # LAST RESORT: Create simple hash-based encoding from pixel data
         try:
             top, right, bottom, left = face_location
             face_crop = image[top:bottom, left:right]
@@ -261,68 +339,106 @@ class FacialRecognitionService:
             face_small = cv2.resize(face_crop, (32, 32))
             # Flatten and normalize
             encoding = face_small.flatten().astype(np.float32) / 255.0
+            logger.info(f"✓ encode_face: Using FALLBACK 2 - pixel-hash ({len(encoding)} elements)")
             return encoding
         except Exception as e:
             logger.error(f"Error generating fallback encoding: {e}")
             return None
 
     def match_face(self, face_encoding: np.ndarray, known_encodings: List[np.ndarray],
-                   known_students: List[int], threshold: float = 0.3) -> Tuple[Optional[int], float]:
+                   known_students: List[int], threshold: float = 0.6) -> Tuple[Optional[int], float]:
         """
-        Match a face encoding against known encodings using optimized vectorized operations.
+        Match a face encoding against known encodings using face-recognition distance if available.
 
         Args:
             face_encoding: Face encoding to match
             known_encodings: List of known face encodings
             known_students: List of corresponding student IDs
-            threshold: Distance threshold for matching
+            threshold: Distance threshold for matching (default 0.6 for face-recognition, 0.5 for fallback)
 
         Returns:
             Tuple of (student_id, confidence) or (None, 0.0) if no match
         """
         if not known_encodings or face_encoding is None:
+            logger.debug("No encodings to match against")
             return None, 0.0
 
         try:
-            # Try using face-recognition if available
-            if self.face_recognition is not None:
-                distances = self.face_recognition.face_distance(known_encodings, face_encoding)
-                min_distance_idx = np.argmin(distances)
-                min_distance = distances[min_distance_idx]
-                confidence = 1.0 - min_distance
+            # Try using face-recognition library if available
+            if self.face_recognition is not None and len(face_encoding) == 128:
+                # Check if we have 128-element known encodings (from face-recognition)
+                valid_encodings = []
+                valid_students = []
+                
+                for enc, student_id in zip(known_encodings, known_students):
+                    if enc is not None and len(enc) == 128:
+                        valid_encodings.append(enc)
+                        valid_students.append(student_id)
+                
+                logger.info(f"Using face-recognition: {len(valid_encodings)} valid 128-element enrolled encodings, {len(known_encodings) - len(valid_encodings)} invalid")
+                
+                if valid_encodings:
+                    try:
+                        # Build a 2D float32 matrix for distance calculation to avoid ragged arrays
+                        enc_matrix = np.vstack([np.asarray(e, dtype=np.float32) for e in valid_encodings])
+                        face_vec = np.asarray(face_encoding, dtype=np.float32)
 
-                if min_distance <= threshold:
-                    return known_students[min_distance_idx], confidence
-                else:
-                    return None, confidence
+                        # Use face-recognition distance for 128-element encodings
+                        distances = self.face_recognition.face_distance(enc_matrix, face_vec)
+                        min_distance_idx = np.argmin(distances)
+                        min_distance = float(distances[min_distance_idx])
+                        confidence = float(max(0.0, 1.0 - min_distance))
 
-            # Fallback: Use optimized cosine similarity with vectorized operations
-            # Convert to numpy array for vectorized operations
-            known_encodings_array = np.array([enc for enc in known_encodings if enc is not None])
+                        # Log all distances for debugging
+                        logger.info(f"face-recognition distances: {[f'{d:.4f}' for d in distances]}")
+                        logger.info(f"face-recognition match: min_distance={min_distance:.4f}, confidence={confidence:.2f}, threshold={threshold}, student_id={valid_students[min_distance_idx]}")
 
-            if len(known_encodings_array) == 0:
+                        if min_distance <= threshold:
+                            logger.info(f"MATCH ACCEPTED: distance {min_distance:.4f} <= threshold {threshold}")
+                            return valid_students[min_distance_idx], confidence
+                        logger.info(f"MATCH REJECTED: distance {min_distance:.4f} > threshold {threshold}")
+                        return None, confidence
+                    except Exception as e:
+                        logger.warning(f"face-recognition distance calculation failed: {e}, falling back to cosine similarity")
+
+            # FALLBACK: Use cosine similarity for all other encoding types
+            logger.debug("Using cosine similarity fallback for matching")
+            
+            # Filter out None values and keep track of indices
+            valid_encodings = []
+            valid_students = []
+            
+            for enc, student_id in zip(known_encodings, known_students):
+                if enc is not None and len(enc) > 0:
+                    valid_encodings.append(enc)
+                    valid_students.append(student_id)
+
+            if not valid_encodings:
+                logger.warning("No valid encodings available for matching")
                 return None, 0.0
 
-            # Filter out None values and keep track of indices
-            valid_indices = [i for i, enc in enumerate(known_encodings) if enc is not None]
-            valid_students = [known_students[i] for i in valid_indices]
+            # Ensure same length for all encodings by using minimum length
+            # Build a clean 2D float32 array trimmed to minimum length to avoid ragged objects
+            min_len = min(min(len(enc) for enc in valid_encodings), len(face_encoding))
+            logger.info(f"Cosine similarity fallback: {len(valid_encodings)} encodings, min_len={min_len}, face_encoding size={len(face_encoding)}")
 
-            # Ensure same length for all encodings
-            min_len = min(known_encodings_array.shape[1], len(face_encoding))
-            known_trimmed = known_encodings_array[:, :min_len]
-            face_trimmed = face_encoding[:min_len]
+            known_trimmed = np.vstack([np.asarray(enc[:min_len], dtype=np.float32) for enc in valid_encodings])
+            face_trimmed = np.asarray(face_encoding[:min_len], dtype=np.float32)
 
-            # Vectorized cosine similarity calculation
-            dot_products = np.dot(known_trimmed, face_trimmed)
+            # Normalize vectors to prevent overflow and allow cosine similarity
             norm_known = np.linalg.norm(known_trimmed, axis=1)
             norm_face = np.linalg.norm(face_trimmed)
+            if norm_face <= 1e-10:
+                logger.warning("Cosine similarity fallback: detected face vector has zero norm")
+                return None, 0.0
 
-            # Avoid division by zero
-            valid_norms = norm_known > 0
-            similarities = np.zeros(len(known_trimmed))
-            similarities[valid_norms] = dot_products[valid_norms] / (norm_known[valid_norms] * norm_face)
+            normalized_known = np.zeros_like(known_trimmed, dtype=np.float32)
+            normalized_known[norm_known > 0] = known_trimmed[norm_known > 0] / norm_known[norm_known > 0, None]
+            normalized_face = face_trimmed / norm_face
 
-            # Convert similarity to distance
+            similarities = np.dot(normalized_known, normalized_face)
+
+            # Convert similarity to distance (1 - similarity)
             distances = 1.0 - similarities
 
             # Find best and second-best matches
@@ -331,23 +447,35 @@ class FacialRecognitionService:
             min_distance = distances[min_distance_idx]
             confidence = max(0.0, min(1.0, 1.0 - min_distance))
 
+            # Use a moderate threshold for fallback encodings
+            fallback_threshold = 0.5
+            
+            logger.info(f"Cosine similarity distances: {[f'{d:.4f}' for d in distances]}")
+            logger.info(f"Cosine match: distance={min_distance:.4f}, confidence={confidence:.2f}, threshold={fallback_threshold}, student_id={valid_students[min_distance_idx]}")
+
             # Require a clear margin between the best and second-best match
             if len(distances) > 1:
                 second_best = distances[sorted_indices[1]]
-                if second_best - min_distance < 0.08:
+                margin = second_best - min_distance
+                logger.info(f"Margin between best and second match: {margin:.4f}")
+                if margin < 0.08:
+                    logger.info("Ambiguous match: margin too small")
                     return None, confidence
 
             # If only a single known encoding exists, require stronger confidence
             if len(valid_students) == 1 and min_distance > 0.15:
+                logger.info("Single enrollment with high distance")
                 return None, confidence
 
-            if min_distance <= threshold:
+            if min_distance <= fallback_threshold:
+                logger.info(f"MATCH ACCEPTED: distance {min_distance:.4f} <= threshold {fallback_threshold}")
                 return valid_students[min_distance_idx], confidence
             else:
+                logger.info(f"MATCH REJECTED: distance {min_distance:.4f} > threshold {fallback_threshold}")
                 return None, confidence
 
         except Exception as e:
-            logger.error(f"Error matching face: {e}")
+            logger.error(f"Error matching face: {e}", exc_info=True)
             return None, 0.0
 
     def process_group_photo(self, image_file) -> Dict:
@@ -395,15 +523,19 @@ class FacialRecognitionService:
 
             known_encodings = []
             known_students = []
+            
+            logger.info(f"Retrieved {face_data.count()} face data records from database")
 
             for face in face_data:
-                try:
-                    decoded = base64.b64decode(face.face_encoding)
-                    encoding = np.frombuffer(decoded, dtype=np.float32)
-                    known_encodings.append(encoding)
-                    known_students.append(face.student.student_id)
-                except Exception as exc:
-                    logger.warning(f"Skipping invalid face encoding for student {face.student.student_id}: {exc}")
+                encoding = self._decode_face_encoding(face.face_encoding)
+                if encoding is None:
+                    logger.warning(f"Skipping invalid face encoding for student {face.student.student_id}")
+                    continue
+                known_encodings.append(encoding)
+                known_students.append(face.student.student_id)
+                logger.info(f"Loaded enrolled face for student {face.student.student_id}: encoding shape={encoding.shape}, size={encoding.size}")
+
+            logger.info(f"Loaded {len(known_encodings)} valid encodings from database for matching")
 
             # Process each detected face and collect candidate matches
             candidate_matches = []
@@ -411,9 +543,11 @@ class FacialRecognitionService:
                 face_encoding = self.encode_face(image_array, face_location)
 
                 if face_encoding is not None:
+                    logger.info(f"Detected face {i}: encoding shape={face_encoding.shape}, size={face_encoding.size}")
                     student_id, confidence = self.match_face(
                         face_encoding, known_encodings, known_students
                     )
+                    logger.info(f"Face {i} match result: student_id={student_id}, confidence={confidence:.4f}")
 
                     if student_id:
                         # Get student name from pre-fetched data to avoid additional queries
@@ -472,10 +606,19 @@ class FacialRecognitionService:
 
             # Categorize matches by confidence
             for match in best_matches_by_student.values():
-                if match['confidence'] >= 0.8:
+                if match['confidence'] >= 0.55:
                     results['confirmed_matches'].append(match)
                 else:
                     results['ambiguous_matches'].append(match)
+
+            # Summary logging
+            logger.info(f"=== PROCESS GROUP PHOTO SUMMARY ===")
+            logger.info(f"Total faces detected: {len(face_locations)}")
+            logger.info(f"Enrolled students in database: {len(known_students)}")
+            logger.info(f"Confirmed matches (confidence >= 0.55): {len(results['confirmed_matches'])}")
+            logger.info(f"Ambiguous matches (<0.55): {len(results['ambiguous_matches'])}")
+            logger.info(f"Unmatched faces: {len(results['unmatched_faces'])}")
+            logger.info(f"=== END SUMMARY ===")
 
             return results
 
@@ -521,6 +664,7 @@ class FacialRecognitionService:
                 encoded_text = None
 
                 if face_encoding is not None:
+                    face_encoding = np.asarray(face_encoding, dtype=np.float32)
                     encoded_text = base64.b64encode(face_encoding.tobytes()).decode('utf-8')
 
                 # Convert face_location to bounding box format (x, y, width, height)
@@ -586,6 +730,7 @@ class FacialRecognitionService:
                 logger.error(f"Failed to encode face for student {student.student_id}")
                 return False
 
+            face_encoding = np.asarray(face_encoding, dtype=np.float32)
             encoded_text = base64.b64encode(face_encoding.tobytes()).decode('utf-8')
 
             FaceData.objects.create(
