@@ -658,14 +658,51 @@ class FacialRecognitionService:
             if not face_locations:
                 return results
 
+            # Load existing enrolled face encodings so we can flag faces that already map to a student.
+            face_data = FaceData.objects.filter(
+                face_encoding__isnull=False
+            ).select_related('student').only(
+                'face_encoding', 'student__student_id',
+                'student__first_name', 'student__middle_name', 'student__last_name'
+            )
+
+            known_encodings = []
+            known_students = []
+            for face in face_data:
+                encoding = self._decode_face_encoding(face.face_encoding)
+                if encoding is None:
+                    logger.warning(f"Skipping invalid face encoding for student {face.student.student_id}")
+                    continue
+                known_encodings.append(encoding)
+                known_students.append(face.student.student_id)
+
+            logger.info(f"Loaded {len(known_encodings)} enrolled encodings from database for assignment detection")
+
             # Process each detected face
             for i, face_location in enumerate(face_locations):
                 face_encoding = self.encode_face(image_array, face_location)
                 encoded_text = None
+                assigned_student = None
+                match_confidence = 0.0
 
                 if face_encoding is not None:
                     face_encoding = np.asarray(face_encoding, dtype=np.float32)
                     encoded_text = base64.b64encode(face_encoding.tobytes()).decode('utf-8')
+
+                    if known_encodings:
+                        student_id, confidence = self.match_face(face_encoding, known_encodings, known_students)
+                        if student_id and confidence >= 0.55:
+                            student_name = 'Unknown'
+                            for face in face_data:
+                                if face.student.student_id == student_id:
+                                    student_name = f"{face.student.first_name} {face.student.middle_name + ' ' if face.student.middle_name else ''}{face.student.last_name}".strip()
+                                    break
+                            assigned_student = {
+                                'id': student_id,
+                                'name': student_name,
+                                'student_id': student_id
+                            }
+                            match_confidence = confidence
 
                 # Convert face_location to bounding box format (x, y, width, height)
                 top, right, bottom, left = face_location
@@ -675,7 +712,9 @@ class FacialRecognitionService:
                     'face_index': i,
                     'bounding_box': bounding_box,  # [x, y, width, height]
                     'location': face_location,
-                    'encoding': encoded_text
+                    'encoding': encoded_text,
+                    'assigned_student': assigned_student,
+                    'match_confidence': match_confidence
                 })
 
                 if face_encoding is None:
