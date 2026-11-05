@@ -367,11 +367,17 @@ export function RegisterStudentPage() {
           <>
             {/* Progress Indicator */}
             <div className="mb-8">
-              <div className="flex justify-between items-center mb-4">
+              <div className="relative mb-4 grid grid-cols-4 items-center">
+                <div className="absolute left-[12.5%] right-[12.5%] top-1/2 h-1 -translate-y-1/2 bg-neutral-200">
+                  <div
+                    className="h-full bg-primary transition-[width]"
+                    style={{ width: `${((formStep - 1) / 3) * 100}%` }}
+                  />
+                </div>
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="flex-1 flex items-center">
+                  <div key={i} className="relative z-10 flex justify-center">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
                         i <= formStep
                           ? "bg-primary text-primary-foreground"
                           : "bg-neutral-200 text-neutral-600"
@@ -379,17 +385,10 @@ export function RegisterStudentPage() {
                     >
                       {i}
                     </div>
-                    {i < 4 && (
-                      <div
-                        className={`flex-1 h-1 mx-2 ${
-                          i < formStep ? "bg-primary" : "bg-neutral-200"
-                        }`}
-                      />
-                    )}
                   </div>
                 ))}
               </div>
-              <div className="flex justify-between text-xs text-neutral-600">
+              <div className="grid grid-cols-4 text-center text-xs text-neutral-600">
                 <span>Account</span>
                 <span>Contact</span>
                 <span>Background</span>

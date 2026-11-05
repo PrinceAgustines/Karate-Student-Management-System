@@ -4,6 +4,7 @@ import { Button } from "../../../shared/components/ui/button";
 import { Progress } from "../../../shared/components/ui/progress";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import reportHeaderImageUrl from "../../../assets/report-header-sample.png";
 import {
   fetchAttendanceLogs,
   fetchSessions,
@@ -31,10 +32,41 @@ function escapeCsvValue(value: unknown) {
   return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
+function formatReportTitle(reportMonth: string) {
+  const [year, month] = reportMonth.split("-").map(Number);
+  const monthName = new Intl.DateTimeFormat("en-US", { month: "long" }).format(new Date(year, month - 1, 1));
+  return `Report for the month of ${monthName} ${year}`;
+}
+
+async function loadReportHeaderImage() {
+  const response = await fetch(reportHeaderImageUrl);
+  if (!response.ok) {
+    throw new Error("Unable to load the report header image.");
+  }
+
+  const image = await response.blob();
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Unable to read the report header image."));
+      }
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Unable to read the report header image."));
+    reader.readAsDataURL(image);
+  });
+}
+
 function buildCsv(reportData: ReportData, reportMonth: string) {
   const rows: string[][] = [];
 
-  rows.push([`Attendance Report (${reportMonth})`]);
+  rows.push(["RYO SHOTOKAN KARATEDO CLUB"]);
+  rows.push(["CUEVAS KARATEDO SHOTOKAN ASSOCIATION"]);
+  rows.push([formatReportTitle(reportMonth)]);
+  rows.push([]);
+  rows.push(["Attendance Report"]);
   rows.push(["Session ID", "Date", "Start Time", "End Time", "Venue", "Session Type", "Present", "Absent", "Total"]);
   (reportData.attendance_report ?? []).forEach((item) => {
     rows.push([
@@ -71,10 +103,16 @@ function buildCsv(reportData: ReportData, reportMonth: string) {
   return `\uFEFF${rows.map((row) => row.join(",")).join("\r\n")}`;
 }
 
-function buildPdf(reportData: ReportData, reportMonth: string) {
+function buildPdf(reportData: ReportData, reportMonth: string, headerImage: string) {
   const doc = new jsPDF({ orientation: "landscape" });
-  doc.setFontSize(16);
-  doc.text(`Karate Reports - ${reportMonth}`, 14, 16);
+  const headerWidth = doc.internal.pageSize.getWidth() - 28;
+  const headerHeight = headerWidth * (214 / 787);
+  doc.addImage(headerImage, "PNG", 14, 8, headerWidth, headerHeight);
+  doc.setFillColor(255, 255, 255);
+  doc.rect(68, 71, doc.internal.pageSize.getWidth() - 136, 10, "F");
+  doc.setFont("times", "bold");
+  doc.setFontSize(13);
+  doc.text(formatReportTitle(reportMonth), doc.internal.pageSize.getWidth() / 2, 78.5, { align: "center" });
 
   const addPdfTable = (
     title: string,
@@ -83,7 +121,7 @@ function buildPdf(reportData: ReportData, reportMonth: string) {
     columnWidths: number[],
   ) => {
     const previousFinalY = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
-    let headingY = previousFinalY ? previousFinalY + 10 : 24;
+    let headingY = previousFinalY ? previousFinalY + 10 : 89;
     if (headingY + 24 > doc.internal.pageSize.getHeight()) {
       doc.addPage();
       headingY = 15;
@@ -207,9 +245,25 @@ export function ReportsGenerator() {
       setPdfPreviewUrl(null);
       return;
     }
-    const url = URL.createObjectURL(buildPdf(reportData, reportMonth));
-    setPdfPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
+    let cancelled = false;
+    let previewUrl: string | null = null;
+    setPdfPreviewUrl(null);
+    loadReportHeaderImage()
+      .then((headerImage) => {
+        if (cancelled) return;
+        previewUrl = URL.createObjectURL(buildPdf(reportData, reportMonth, headerImage));
+        setPdfPreviewUrl(previewUrl);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setExportError(error instanceof Error ? error.message : "Unable to prepare the PDF preview.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
   }, [reportData, reportMonth]);
 
   const reportSummaries: ReportSummary[] = [
@@ -258,7 +312,8 @@ export function ReportsGenerator() {
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         downloadBlob(blob, `karate_reports_${reportMonth}.csv`);
       } else {
-        downloadBlob(buildPdf(reportData, reportMonth), `karate_reports_${reportMonth}.pdf`);
+        const headerImage = await loadReportHeaderImage();
+        downloadBlob(buildPdf(reportData, reportMonth, headerImage), `karate_reports_${reportMonth}.pdf`);
       }
     } catch (error) {
       console.error(error);
