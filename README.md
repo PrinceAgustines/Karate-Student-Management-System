@@ -19,7 +19,7 @@ A full-stack application for managing karate students, dojo operations, evaluati
 - **Frontend:** React 18, TypeScript, Vite, React Router, Tailwind CSS, Radix UI, and Recharts.
 - **Backend:** Python 3.11, Django, Django REST Framework, and Simple JWT.
 - **Database:** PostgreSQL.
-- **Computer vision:** MediaPipe, OpenCV, TensorFlow, and face-recognition/dlib dependencies; YOLO is used by pose-analysis support.
+- **Computer vision:** MediaPipe and OpenCV for pose analysis; face-recognition/dlib for attendance recognition.
 
 ## Repository layout
 
@@ -137,6 +137,8 @@ Backend configuration is read from `backend/.env`. Common settings include:
 | `VITE_API_BASE` | Frontend API base URL; defaults to `http://127.0.0.1:8000` |
 
 `backend/manage.py` selects development settings by default. For deployment, select `config.settings.production`, set a unique secret key and production allowed hosts/origins, use `DEBUG=False`, and serve the application over HTTPS. The production settings reject the development secret key and default localhost hosts. Configure production database, static-file, media-file, and hosting services for your environment; this repository does not include a Docker or cloud deployment recipe.
+
+Inventory images are served from `backend/media/inventory_images/` at `/media/inventory_images/`, including when `DEBUG=False`. Production deployments must retain the `backend/media/` directory across application restarts and releases, or configure persistent media storage, so uploaded images remain available.
 
 ## API and application flow
 

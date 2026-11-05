@@ -1,60 +1,61 @@
 import { createBrowserRouter, Navigate } from "react-router";
-import { RootLayout } from "./components/layouts/RootLayout";
-import { AuthLayout } from "./components/layouts/AuthLayout";
-import { DashboardLayout } from "./components/layouts/DashboardLayout";
+import { RootLayout } from "./layouts/RootLayout";
+import { AuthLayout } from "./layouts/AuthLayout";
+import { DashboardLayout } from "./layouts/DashboardLayout";
 
 // Auth pages
-import { LoginPage } from "./components/pages/auth/LoginPage";
-import { RegisterStudentPage } from "./components/pages/auth/RegisterStudentPage";
-import { RegisterInstructorPage } from "./components/pages/auth/RegisterInstructorPage";
-import { ForgotPasswordPage } from "./components/pages/auth/ForgotPasswordPage";
-import { RegisterParentPage } from "./components/pages/auth/RegisterParentPage";
+import { LoginPage } from "../features/auth/pages/LoginPage";
+import { RegisterStudentPage } from "../features/auth/pages/RegisterStudentPage";
+import { RegisterInstructorPage } from "../features/auth/pages/RegisterInstructorPage";
+import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
+import { RegisterParentPage } from "../features/auth/pages/RegisterParentPage";
 
 // Dashboard pages
-import { AdminDashboard } from "./components/pages/dashboards/AdminDashboard";
-import { InstructorDashboard } from "./components/pages/dashboards/InstructorDashboard";
-import { StudentDashboard } from "./components/pages/dashboards/StudentDashboard";
-import { ParentDashboard } from "./components/pages/dashboards/ParentDashboard";
-import { RoleGuard } from "./components/layouts/RoleGuard";
+import { AdminDashboard } from "../features/dashboard/pages/AdminDashboard";
+import { InstructorDashboard } from "../features/dashboard/pages/InstructorDashboard";
+import { StudentDashboard } from "../features/dashboard/pages/StudentDashboard";
+import { ParentDashboard } from "../features/dashboard/pages/ParentDashboard";
+import { RoleGuard } from "./layouts/RoleGuard";
 
 // Admin
-import { IDManagement } from "./components/pages/admin/IDManagement";
+import { IDManagement } from "../features/admin/pages/IDManagement";
+import { BugReportsPage } from "../features/admin/pages/BugReportsPage";
 
 // Student Management
-import { StudentList } from "./components/pages/students/StudentList";
-import { StudentProfile } from "./components/pages/students/StudentProfile";
+import { StudentList } from "../features/students/pages/StudentList";
+import { StudentProfile } from "../features/students/pages/StudentProfile";
 
 // Attendance
-import { AttendancePage } from "./components/pages/attendance/AttendancePage";
+import { AttendancePage } from "../features/attendance/pages/AttendancePage";
 
 // Performance
-import { PoseEvaluation } from "./components/pages/performance/PoseEvaluation";
-import { StanceEvaluations } from "./components/pages/performance/StanceEvaluations";
-import { InstructorRatings } from "./components/pages/performance/InstructorRatings";
-import { StudentEvaluationDashboard } from "./components/pages/performance/StudentEvaluationDashboard";
-import { SparringPage } from "./components/pages/performance/SparringPage";
+import { PoseEvaluation } from "../features/performance/pages/PoseEvaluation";
+import { StanceEvaluations } from "../features/performance/pages/StanceEvaluations";
+import { InstructorRatings } from "../features/performance/pages/InstructorRatings";
+import { StudentEvaluationDashboard } from "../features/performance/pages/StudentEvaluationDashboard";
+import { SparringPage } from "../features/performance/pages/SparringPage";
 
 // Analytics
-import { ProgressionDashboard } from "./components/pages/analytics/ProgressionDashboard";
-import { AttendanceTrends } from "./components/pages/analytics/AttendanceTrends";
-import { PerformanceSummary } from "./components/pages/analytics/PerformanceSummary";
-import { ReportsGenerator } from "./components/pages/analytics/ReportsGenerator";
+import { ProgressionDashboard } from "../features/analytics/pages/ProgressionDashboard";
+import { AttendanceTrends } from "../features/analytics/pages/AttendanceTrends";
+import { PerformanceSummary } from "../features/analytics/pages/PerformanceSummary";
+import { ReportsGenerator } from "../features/analytics/pages/ReportsGenerator";
 
 // Gamification
-import { GamificationDashboard } from "./components/pages/gamification/GamificationDashboard";
+import { GamificationDashboard } from "../features/gamification/pages/GamificationDashboard";
 
 // Inventory & Schedule
-import { InventoryManagement } from "./components/pages/inventory/InventoryManagement";
-import { ShopPage } from "./components/pages/inventory/ShopPage";
-import { ShoppingCart } from "./components/pages/inventory/ShoppingCart";
-import { Checkout } from "./components/pages/inventory/Checkout";
-import { DojoSchedule } from "./components/pages/schedule/DojoSchedule";
+import { InventoryManagement } from "../features/inventory/pages/InventoryManagement";
+import { ShopPage } from "../features/inventory/pages/ShopPage";
+import { ShoppingCart } from "../features/inventory/pages/ShoppingCart";
+import { Checkout } from "../features/inventory/pages/Checkout";
+import { DojoSchedule } from "../features/schedule/pages/DojoSchedule";
 
 // Children
-import { ChildrenPage } from "./components/pages/children/ChildrenPage";
+import { ChildrenPage } from "../features/children/pages/ChildrenPage";
 
 // Notifications
-import { NotificationsPage } from "./components/pages/NotificationsPage";
+import { NotificationsPage } from "../features/notifications/pages/NotificationsPage";
 
 export const router = createBrowserRouter([
   {
@@ -77,11 +78,12 @@ export const router = createBrowserRouter([
         path: "dashboard",
         Component: DashboardLayout,
         children: [
-          { path: "admin", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><AdminDashboard /></RoleGuard> },
+          { path: "admin", Component: () => <RoleGuard allowedRoles={["admin"]}><AdminDashboard /></RoleGuard> },
           { path: "instructor", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><InstructorDashboard /></RoleGuard> },
           { path: "student", Component: () => <RoleGuard allowedRoles={["student"]}><StudentDashboard /></RoleGuard> },
           { path: "parent", Component: () => <RoleGuard allowedRoles={["parent"]}><ParentDashboard /></RoleGuard> },
           { path: "id-management", Component: () => <RoleGuard allowedRoles={["admin", "instructor"]}><IDManagement /></RoleGuard> },
+          { path: "bug-reports", Component: () => <RoleGuard allowedRoles={["admin"]}><BugReportsPage /></RoleGuard> },
           { path: "students", Component: () => <RoleGuard allowedRoles={["admin", "instructor", "parent"]}><StudentList /></RoleGuard> },
           { path: "students/:id/dashboard", Component: () => <RoleGuard allowedRoles={["admin", "instructor", "parent"]}><StudentDashboard /></RoleGuard> },
           { path: "students/:id", Component: () => <RoleGuard allowedRoles={["admin", "instructor", "parent"]}><StudentProfile /></RoleGuard> },
