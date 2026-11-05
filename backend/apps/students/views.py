@@ -1233,8 +1233,7 @@ class StanceEvaluationViewSet(viewsets.ModelViewSet):
     def trend(self, request):
         """Get accuracy trend for a student."""
         student_id = request.query_params.get('student_id')
-        days = int(request.query_params.get('days', 30))
-        
+
         if not student_id:
             return Response({'detail': 'student_id query parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -1243,7 +1242,7 @@ class StanceEvaluationViewSet(viewsets.ModelViewSet):
         except Student.DoesNotExist:
             return Response({'detail': 'Student not found.'}, status=status.HTTP_404_NOT_FOUND)
         
-        trend_data = PoseAnalyticsService.calculate_accuracy_trend(student, days)
+        trend_data = PoseAnalyticsService.calculate_accuracy_trend(student)
         return Response(trend_data, status=status.HTTP_200_OK)
 
 class IsPoseTemplateManager(permissions.BasePermission):

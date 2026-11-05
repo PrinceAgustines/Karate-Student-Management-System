@@ -5,7 +5,7 @@ from django.urls import include, path, re_path
 from django.views.static import serve
 
 
-def serve_inventory_image(request, path):
+def serve_media_file(request, path):
     return serve(request, path, document_root=settings.MEDIA_ROOT)
 
 
@@ -18,7 +18,11 @@ urlpatterns = [
 urlpatterns += [
     re_path(
         r'^media/(?P<path>inventory_images/.*)$',
-        serve_inventory_image,
+        serve_media_file,
+    ),
+    re_path(
+        r'^media/(?P<path>student_photos/.*)$',
+        serve_media_file,
     ),
 ]
 

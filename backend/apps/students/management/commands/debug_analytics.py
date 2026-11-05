@@ -46,7 +46,7 @@ class Command(BaseCommand):
         # Test 3: Test calculate_accuracy_trend
         self.stdout.write('\n[TEST 3] Testing calculate_accuracy_trend()...')
         try:
-            trend = PoseAnalyticsService.calculate_accuracy_trend(student, 30)
+            trend = PoseAnalyticsService.calculate_accuracy_trend(student)
             self.stdout.write(self.style.SUCCESS('✓ Trend calculated:'))
             self.stdout.write(f'  - Trend data points: {len(trend["trend_data"])}')
             self.stdout.write(f'  - Current accuracy: {trend["current_accuracy"]}')

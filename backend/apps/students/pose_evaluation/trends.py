@@ -1,35 +1,44 @@
-from datetime import timedelta
 from typing import Any, Dict, List
 
 import numpy as np
-from django.utils import timezone
 
 from apps.students.models import StanceEvaluation, Student
 
 
 class PoseAnalyticsService:
     @staticmethod
-    def calculate_accuracy_trend(student: Student, days: int = 30) -> Dict[str, Any]:
-        end_date = timezone.now().date()
-        start_date = end_date - timedelta(days=days)
+    def calculate_accuracy_trend(student: Student, session_limit: int = 5) -> Dict[str, Any]:
         evaluations = StanceEvaluation.objects.filter(
             student=student,
-            date_evaluated__gte=start_date,
-            date_evaluated__lte=end_date,
-        ).order_by('date_evaluated')
+        ).order_by('date_evaluated', 'id')
 
-        daily_scores: Dict[str, List[int]] = {}
+        session_scores: Dict[tuple, Dict[str, Any]] = {}
         for evaluation in evaluations:
             date = evaluation.date_evaluated.isoformat()
-            daily_scores.setdefault(date, []).append(evaluation.score)
+            details = evaluation.analysis_details if isinstance(evaluation.analysis_details, dict) else {}
+            session_id = details.get('session_id')
+            session_key = ('session', str(session_id)) if session_id is not None else ('date', date)
+            session = session_scores.setdefault(session_key, {
+                'date': date,
+                'session_id': session_id,
+                'scores': [],
+                'sort_id': evaluation.id,
+            })
+            session['scores'].append(evaluation.score)
+            session['sort_id'] = evaluation.id
 
+        sessions = sorted(
+            session_scores.values(),
+            key=lambda session: (session['date'], session['sort_id']),
+        )[-session_limit:]
         trend_data = [
             {
-                'date': date,
-                'accuracy': int(np.mean(scores)),
-                'consistency': int(np.std(scores)) if len(scores) > 1 else 0,
+                'date': session['date'],
+                'session_id': session['session_id'],
+                'accuracy': int(np.mean(session['scores'])),
+                'consistency': int(np.std(session['scores'])) if len(session['scores']) > 1 else 0,
             }
-            for date, scores in sorted(daily_scores.items())
+            for session in sessions
         ]
         accuracies = [point['accuracy'] for point in trend_data]
         midpoint = len(accuracies) // 2
@@ -51,5 +60,5 @@ class PoseAnalyticsService:
                 'stable'
             ),
             'improvement_rate': improvement_rate,
-            'evaluations_count': sum(len(scores) for scores in daily_scores.values()),
+            'evaluations_count': sum(len(session['scores']) for session in sessions),
         }

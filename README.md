@@ -138,7 +138,7 @@ Backend configuration is read from `backend/.env`. Common settings include:
 
 `backend/manage.py` selects development settings by default. For deployment, select `config.settings.production`, set a unique secret key and production allowed hosts/origins, use `DEBUG=False`, and serve the application over HTTPS. The production settings reject the development secret key and default localhost hosts. Configure production database, static-file, media-file, and hosting services for your environment; this repository does not include a Docker or cloud deployment recipe.
 
-Inventory images are served from `backend/media/inventory_images/` at `/media/inventory_images/`, including when `DEBUG=False`. Production deployments must retain the `backend/media/` directory across application restarts and releases, or configure persistent media storage, so uploaded images remain available.
+Inventory images and student portraits are served from `backend/media/inventory_images/` and `backend/media/student_photos/`, respectively, including when `DEBUG=False`. Production deployments must retain the `backend/media/` directory across application restarts and releases, or configure persistent media storage, so uploaded images remain available.
 
 ## API and application flow
 

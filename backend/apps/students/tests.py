@@ -37,6 +37,7 @@ from .models import (
 from .facial_recognition import FacialRecognitionService
 from .pose_evaluation.live import process_live_pose_frame
 from .pose_evaluation.service import PoseEvaluationService, get_pose_evaluation_service
+from .pose_evaluation.trends import PoseAnalyticsService
 from .serializers import PoseTemplateSerializer, SparringMatchSerializer, StudentSerializer
 from .performance.services import (
     BeltProgressionService,
@@ -59,6 +60,28 @@ class InventoryImageServingTests(SimpleTestCase):
 
             response = self.client.get(
                 '/media/inventory_images/karategearset.png',
+                HTTP_HOST='localhost',
+            )
+            response_contents = b''.join(response.streaming_content)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response_contents, image_contents)
+
+
+class StudentPhotoServingTests(SimpleTestCase):
+    def test_student_photos_are_served_when_debug_is_disabled(self):
+        image_contents = b'student portrait image'
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(
+            MEDIA_ROOT=media_root,
+            DEBUG=False,
+        ):
+            image_path = Path(media_root) / 'student_photos' / '42' / 'portrait.jpg'
+            image_path.parent.mkdir(parents=True)
+            image_path.write_bytes(image_contents)
+
+            response = self.client.get(
+                '/media/student_photos/42/portrait.jpg',
                 HTTP_HOST='localhost',
             )
             response_contents = b''.join(response.streaming_content)
@@ -564,6 +587,56 @@ class StanceEvaluationSaveTests(TestCase):
         self.assertEqual(Notification.objects.filter(
             notification_type='pose_evaluation_completed',
         ).count(), 1)
+
+    def test_pose_trend_returns_last_five_sessions_for_selected_student(self):
+        today = timezone.now().date()
+        sessions = []
+        for index in range(6):
+            session = Session.objects.create(
+                date=today - datetime.timedelta(days=90 - index * 10),
+                start_time=datetime.time(9, 0),
+                end_time=datetime.time(10, 0),
+                venue='Main dojo',
+                session_type='regular',
+            )
+            sessions.append(session)
+            StanceEvaluation.objects.create(
+                student=self.student,
+                stance_type='Kiba-dachi',
+                score=60 + index * 5,
+                analysis_details={'session_id': session.session_id},
+                date_evaluated=session.date,
+            )
+
+        StanceEvaluation.objects.create(
+            student=self.student,
+            stance_type='Kiba-dachi',
+            score=95,
+            analysis_details={'session_id': sessions[-1].session_id},
+            date_evaluated=sessions[-1].date,
+        )
+        other_student = Student.objects.create(
+            first_name='Aiko',
+            last_name='Tanaka',
+            gender='Female',
+        )
+        StanceEvaluation.objects.create(
+            student=other_student,
+            stance_type='Kiba-dachi',
+            score=0,
+            analysis_details={'session_id': sessions[-1].session_id},
+            date_evaluated=sessions[-1].date,
+        )
+
+        trend = PoseAnalyticsService.calculate_accuracy_trend(self.student)
+
+        self.assertEqual(len(trend['trend_data']), 5)
+        self.assertEqual(
+            [point['date'] for point in trend['trend_data']],
+            [session.date.isoformat() for session in sessions[1:]],
+        )
+        self.assertEqual(trend['trend_data'][-1]['session_id'], sessions[-1].session_id)
+        self.assertEqual(trend['trend_data'][-1]['accuracy'], 90)
 
 
 class LivePoseEvaluationTests(TestCase):

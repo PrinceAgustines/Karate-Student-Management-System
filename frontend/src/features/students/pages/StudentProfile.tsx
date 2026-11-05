@@ -5,7 +5,7 @@ import { Button } from "../../../shared/components/ui/button";
 import { Input } from "../../../shared/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../shared/components/ui/tabs";
 import { useAuth } from "../../../app/providers/AuthProvider";
-import { fetchAttendanceLogs, fetchInstructorRatings, fetchStudentById, fetchStudents, fetchMe, updateMe, updateStudentById, fetchMyChildren } from "../../../shared/lib/api";
+import { fetchAttendanceLogs, fetchInstructorRatings, fetchStudentById, fetchStudents, fetchMe, updateMe, updateStudentById, fetchMyChildren, resolveMediaUrl } from "../../../shared/lib/api";
 
 const beltRanks = [
   { name: "White Belt", label: "White", mobileLabel: "White", color: "#ffffff" },
@@ -108,6 +108,26 @@ type ParentChildRecord = {
   last_name?: string;
   relationship?: string;
 };
+
+function StudentPortrait({ photoUrl, name }: { photoUrl?: string | null; name: string }) {
+  const [hasLoadError, setHasLoadError] = useState(false);
+  const resolvedPhotoUrl = resolveMediaUrl(photoUrl);
+
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-300 bg-white text-xs font-semibold text-neutral-500 sm:h-20 sm:w-20 sm:text-sm">
+      {resolvedPhotoUrl && !hasLoadError ? (
+        <img
+          src={resolvedPhotoUrl}
+          alt={`${name} 2x2 portrait`}
+          className="h-full w-full object-cover object-center"
+          onError={() => setHasLoadError(true)}
+        />
+      ) : (
+        <span aria-label={`${name} portrait unavailable`}>2x2</span>
+      )}
+    </div>
+  );
+}
 
 export function StudentProfile() {
   const { id } = useParams();
@@ -559,13 +579,7 @@ export function StudentProfile() {
         <section className="rounded-lg border border-neutral-200 bg-white p-2.5 shadow-none sm:border-neutral-300 sm:p-5 sm:shadow-sm">
           <div className="flex flex-col gap-3 sm:gap-5 min-[580px]:flex-row min-[580px]:items-center">
             <div className="flex items-center gap-2.5 sm:contents">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-300 bg-white text-[10px] font-bold text-neutral-800 sm:h-20 sm:w-20 sm:text-base">
-              {student?.photo_url ? (
-                <img src={student.photo_url} alt={`${fullName} 2x2 portrait`} className="h-full w-full object-cover" />
-              ) : (
-                <span>2x2</span>
-              )}
-            </div>
+            <StudentPortrait photoUrl={student?.photo_url} name={fullName} />
             <div className="min-w-0 flex-1 sm:hidden">
               {editMode ? (
                 <div className="grid gap-1">

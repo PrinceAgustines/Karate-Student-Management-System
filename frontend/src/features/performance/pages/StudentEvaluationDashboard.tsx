@@ -299,9 +299,9 @@ export function StudentEvaluationDashboard() {
       second.date_evaluated.localeCompare(first.date_evaluated) ||
       (second.id ?? 0) - (first.id ?? 0),
   )[0] ?? null;
-  const currentBeltKataHistory = kataHistory.filter(
-    (rating) => !latestPromotionDate || rating.date_recorded > latestPromotionDate,
-  );
+  const poseEvaluationAverage = kataRating?.pose_evaluation_avg ?? 0;
+  const instructorKataRating = currentBeltLatestInstructorRating?.kata_score ?? 0;
+  const combinedKataScore = (poseEvaluationAverage + instructorKataRating) / 2;
   const currentBeltAttendanceHistory = attendanceHistory.filter(
     (record) => !latestPromotionDate || record.date > latestPromotionDate,
   );
@@ -376,11 +376,14 @@ export function StudentEvaluationDashboard() {
     ? performanceSummary.discipline_average
     : beltProgression?.discipline_readiness || 0;
 
-  const kataTrendData = [...currentBeltKataHistory]
-    .filter((item) => Number.isFinite(Number(item.combined_kata_score)))
-    .sort((first, second) => first.date_recorded.localeCompare(second.date_recorded))
+  const kataTrendData = [...instructorRatingHistory]
+    .filter((item) => item.kata_score != null && Number.isFinite(Number(item.kata_score)))
+    .sort((first, second) =>
+      first.date_evaluated.localeCompare(second.date_evaluated) ||
+      (first.id ?? 0) - (second.id ?? 0)
+    )
     .slice(-5)
-    .map((item) => ({ date: item.date_recorded, score: Number(item.combined_kata_score) }));
+    .map((item) => ({ date: item.date_evaluated, score: Number(item.kata_score) }));
 
   const kumiteTrendData = [...currentBeltInstructorRatings]
     .filter((item) => item.kumite_score != null && Number.isFinite(Number(item.kumite_score)))
@@ -583,7 +586,7 @@ export function StudentEvaluationDashboard() {
             <p className="text-[9px] text-neutral-700 sm:text-base">Kata Score</p>
             <Award className="hidden h-4 w-4 text-red-500 sm:block" />
           </div>
-          <p className="text-2xl font-bold leading-none sm:text-3xl">{kataRating?.combined_kata_score?.toFixed(1) ?? "0.0"}</p>
+          <p className="text-2xl font-bold leading-none sm:text-3xl">{combinedKataScore.toFixed(1)}</p>
           <p className="mt-1 text-[8px] text-neutral-400 sm:text-sm">avg + instructor rating</p>
         </div>
 
@@ -690,13 +693,13 @@ export function StudentEvaluationDashboard() {
           <h2 className="flex items-center gap-2 text-sm font-semibold sm:text-2xl sm:font-bold">
             Kata Evaluation
           </h2>
-          <span className="hidden text-2xl font-bold text-red-600 sm:inline">{kataRating?.combined_kata_score?.toFixed(1) ?? "0.0"}</span>
+          <span className="hidden text-2xl font-bold text-red-600 sm:inline">{combinedKataScore.toFixed(1)}</span>
         </div>
         <div className="space-y-0 md:hidden">
           {[
             ["Pose Evaluation Average", kataRating?.pose_evaluation_avg?.toFixed(1) ?? "0.0"],
             ["Instructor Rating", currentBeltLatestInstructorRating?.kata_score?.toFixed(1) ?? "0.0"],
-            ["Combined Score", kataRating?.combined_kata_score?.toFixed(1) ?? "0.0"],
+            ["Combined Score", combinedKataScore.toFixed(1)],
           ].map(([label, value]) => (
             <div key={label} className="flex min-h-9 items-center justify-between gap-3 border-b border-neutral-100 py-2 last:border-0">
               <span className="text-[9px] text-neutral-500">{label}</span>
@@ -717,7 +720,7 @@ export function StudentEvaluationDashboard() {
           </div>
           <div className="bg-red-50 p-4 rounded-lg">
             <p className="text-sm text-neutral-600 mb-2">Combined Score</p>
-            <p className="text-2xl font-bold text-red-600">{kataRating?.combined_kata_score?.toFixed(1) ?? "0.0"}</p>
+            <p className="text-2xl font-bold text-red-600">{combinedKataScore.toFixed(1)}</p>
             <p className="text-xs text-neutral-500">Average of both</p>
           </div>
         </div>
@@ -800,9 +803,9 @@ export function StudentEvaluationDashboard() {
       <section className="space-y-3">
         <h2 className="text-sm font-bold text-neutral-950 sm:text-2xl">Trends</h2>
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-          <StudentTrendChart title="Kata Score Trend" description="Kata scores for the last 5 recorded ratings" data={kataTrendData} color="#3b82f6" />
-          <StudentTrendChart title="Kumite Score Trend" description="Instructor kumite ratings for the last 5 evaluations" data={kumiteTrendData} color="#3b82f6" />
-          <StudentTrendChart title="Attendance Trend" description="Attendance for the last 5 recorded sessions" data={attendanceTrendData} color="#3b82f6" />
+          <StudentTrendChart title="Kata Score Trend" description="Instructor kata ratings for the last 5 evaluations" data={kataTrendData} color="#dc2626" />
+          <StudentTrendChart title="Kumite Score Trend" description="Instructor kumite ratings for the last 5 evaluations" data={kumiteTrendData} color="#dc2626" />
+          <StudentTrendChart title="Attendance Trend" description="Attendance for the last 5 recorded sessions" data={attendanceTrendData} color="#dc2626" />
           <div className="rounded-lg border border-neutral-300 bg-white p-2.5 sm:p-3">
             <h3 className="mb-1 text-center text-[10px] font-bold sm:text-xl">Instructor Ratings</h3>
             <p className="mb-2 text-[8px] text-neutral-500 sm:text-sm">Average instructor ratings for the current belt</p>
@@ -814,7 +817,7 @@ export function StudentEvaluationDashboard() {
                     <XAxis dataKey="category" tick={{ fontSize: 8, fill: "#737373" }} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 7, fill: "#737373" }} width={26} />
                     <Tooltip formatter={(value) => [`${value}/100`, "Rating"]} />
-                    <Bar dataKey="score" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                    <Bar dataKey="score" fill="#dc2626" radius={[2, 2, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

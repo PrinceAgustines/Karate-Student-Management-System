@@ -2,6 +2,21 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 
+export function resolveMediaUrl(url: string | null | undefined) {
+  if (!url) return null;
+
+  const apiUrl = new URL(API_BASE);
+  const mediaUrl = new URL(url, apiUrl);
+  const isLocalHost = ["localhost", "127.0.0.1", "0.0.0.0"].includes(mediaUrl.hostname);
+
+  if (mediaUrl.pathname.startsWith("/media/") && isLocalHost && mediaUrl.origin !== apiUrl.origin) {
+    mediaUrl.protocol = apiUrl.protocol;
+    mediaUrl.host = apiUrl.host;
+  }
+
+  return mediaUrl.href;
+}
+
 function buildHeaders(hasAuth = false, accessTokenOrJson?: string | boolean, json = true) {
   const headers: Record<string, string> = {};
   let accessToken: string | undefined = undefined;
@@ -525,9 +540,9 @@ export async function fetchPerformanceSummaries(params?: { student_id?: number; 
   return handleResponse(response);
 }
 
-export async function fetchPoseTrend(studentId: number, days: number = 30) {
+export async function fetchPoseTrend(studentId: number) {
   const response = await fetch(
-    `${API_BASE}/api/students/stance-evaluations/trend/?student_id=${studentId}&days=${days}`,
+    `${API_BASE}/api/students/stance-evaluations/trend/?student_id=${studentId}`,
     {
       method: "GET",
       headers: buildHeaders(true),

@@ -424,7 +424,7 @@ export function PoseEvaluation() {
   }, [analysisResult]);
 
   const poseScoreTrend = useMemo(
-    () => poseTrend.slice(-5),
+    () => poseTrend,
     [poseTrend],
   );
 
