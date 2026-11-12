@@ -610,6 +610,14 @@ export async function fetchStudentPerformanceDashboard(studentId: string | numbe
   return handleResponse(response);
 }
 
+export async function refreshStudentBeltReadiness(studentId: string | number) {
+  const response = await fetch(`${API_BASE}/api/students/students/${studentId}/refresh-readiness/`, {
+    method: "POST",
+    headers: buildHeaders(true),
+  });
+  return handleResponse(response);
+}
+
 export async function fetchGamificationLeaderboard() {
   const response = await fetch(`${API_BASE}/api/students/students/gamification/leaderboard/`, {
     method: "GET",

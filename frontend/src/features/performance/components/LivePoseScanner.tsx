@@ -263,9 +263,14 @@ export function LivePoseScanner({ onStop }: LivePoseScannerProps) {
                 Compared to saved reference #{reading.reference_match.template_id} · {Math.round(reading.reference_match.similarity * 100)}% match
               </p>
             )}
-            {!reading.reference_match?.matched && (
+            {reading.reference_match && !reading.reference_match.matched && (
               <p className="mt-1 text-xs font-normal">
-                No saved reference matched
+                Closest saved reference #{reading.reference_match.template_id}: {reading.reference_match.stance_label} · {Math.round(reading.reference_match.similarity * 100)}% similar (below match threshold)
+              </p>
+            )}
+            {!reading.reference_match && (
+              <p className="mt-1 text-xs font-normal">
+                No usable saved pose reference
               </p>
             )}
           </div>

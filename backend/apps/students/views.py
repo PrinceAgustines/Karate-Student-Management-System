@@ -6,7 +6,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.db import models, transaction
-from django.db.models import Count, Avg, Q, Subquery, OuterRef
+from django.db.models import Count, Avg, Q, Subquery, OuterRef, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.text import slugify
@@ -74,6 +74,15 @@ from .performance.services import (
 )
 from .facial_recognition import FacialRecognitionService
 from .pose_evaluation import PoseAnalyticsService, get_pose_evaluation_service
+
+
+def _refresh_belt_readiness(*student_ids):
+    for student_id in {student_id for student_id in student_ids if student_id is not None}:
+        try:
+            student = Student.objects.get(pk=student_id)
+        except Student.DoesNotExist:
+            continue
+        BeltProgressionService.refresh_current_indicator(student)
 
 
 class IsAuthenticatedInventoryManager(permissions.BasePermission):
@@ -311,6 +320,12 @@ class StudentViewSet(viewsets.ModelViewSet):
             },
         })
 
+    @action(detail=True, methods=['post'], url_path='refresh-readiness')
+    def refresh_readiness(self, request, pk=None):
+        student = self.get_object()
+        indicator = BeltProgressionService.refresh_current_indicator(student)
+        return Response(BeltProgressionIndicatorSerializer(indicator).data)
+
     @action(detail=True, methods=['get'], url_path='gamification')
     def gamification(self, request, pk=None):
         student = self.get_object()
@@ -397,6 +412,41 @@ class AnalyticsOverviewView(APIView):
         total_students = Student.objects.count()
         total_sessions = Session.objects.count()
         total_attendance = Attendance.objects.filter(time_in__isnull=False).count()
+
+        student_score_totals = {}
+        for score_model, score_field in (
+            (KataRating, 'combined_kata_score'),
+            (KumiteRating, 'combined_kumite_score'),
+        ):
+            score_rows = score_model.objects.values('student_id').annotate(
+                score_sum=Sum(score_field),
+                score_count=Count('id'),
+            )
+            for row in score_rows:
+                totals = student_score_totals.setdefault(row['student_id'], [0.0, 0])
+                totals[0] += float(row['score_sum'] or 0.0)
+                totals[1] += row['score_count']
+
+        instructor_score_rows = InstructorRating.objects.values('student_id').annotate(
+            kata_sum=Sum('kata_score'),
+            kata_count=Count('kata_score'),
+            kumite_sum=Sum('kumite_score'),
+            kumite_count=Count('kumite_score'),
+            discipline_sum=Sum('discipline_score'),
+            discipline_count=Count('discipline_score'),
+        )
+        for row in instructor_score_rows:
+            totals = student_score_totals.setdefault(row['student_id'], [0.0, 0])
+            for score_field in ('kata', 'kumite', 'discipline'):
+                totals[0] += float(row[f'{score_field}_sum'] or 0.0)
+                totals[1] += row[f'{score_field}_count']
+
+        average_student_all_time_average = (
+            sum(score_sum / score_count for score_sum, score_count in student_score_totals.values() if score_count)
+            / total_students
+            if total_students else 0.0
+        )
+
         attendance_per_session = list(
             Attendance.objects.filter(time_in__isnull=False)
             .values('session')
@@ -495,6 +545,7 @@ class AnalyticsOverviewView(APIView):
                 'total_sessions': total_sessions,
                 'total_attendance': total_attendance,
                 'avg_session_attendance': round(average_session_attendance, 1),
+                'average_student_all_time_average': round(average_student_all_time_average, 1),
                 'avg_kata_score': round(average_kata, 1),
                 'avg_kumite_score': round(average_kumite, 1),
                 'avg_discipline_score': round(average_discipline, 1),
@@ -1116,12 +1167,40 @@ class AttendanceViewSet(viewsets.ModelViewSet):
     serializer_class = AttendanceSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def perform_create(self, serializer):
+        attendance = serializer.save()
+        _refresh_belt_readiness(attendance.student_id)
+
+    def perform_update(self, serializer):
+        previous_student_id = serializer.instance.student_id
+        attendance = serializer.save()
+        _refresh_belt_readiness(previous_student_id, attendance.student_id)
+
+    def perform_destroy(self, instance):
+        student_id = instance.student_id
+        instance.delete()
+        _refresh_belt_readiness(student_id)
+
 
 class StanceEvaluationViewSet(viewsets.ModelViewSet):
     queryset = StanceEvaluation.objects.all().order_by('-date_evaluated')
     serializer_class = StanceEvaluationSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def perform_create(self, serializer):
+        evaluation = serializer.save()
+        _refresh_belt_readiness(evaluation.student_id)
+
+    def perform_update(self, serializer):
+        previous_student_id = serializer.instance.student_id
+        evaluation = serializer.save()
+        _refresh_belt_readiness(previous_student_id, evaluation.student_id)
+
+    def perform_destroy(self, instance):
+        student_id = instance.student_id
+        instance.delete()
+        _refresh_belt_readiness(student_id)
 
     @action(detail=False, methods=['post'], url_path='analyze', parser_classes=[MultiPartParser, FormParser, JSONParser])
     def analyze(self, request):
@@ -1215,6 +1294,7 @@ class StanceEvaluationViewSet(viewsets.ModelViewSet):
             evaluated_by=request.user,
             date_evaluated=session.date,
         )
+        _refresh_belt_readiness(student.student_id)
 
         Notification.objects.create(
             student=student,
@@ -1299,6 +1379,20 @@ class InstructorRatingViewSet(viewsets.ModelViewSet):
     queryset = InstructorRating.objects.all()
     serializer_class = InstructorRatingSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        rating = serializer.save()
+        _refresh_belt_readiness(rating.student_id)
+
+    def perform_update(self, serializer):
+        previous_student_id = serializer.instance.student_id
+        rating = serializer.save()
+        _refresh_belt_readiness(previous_student_id, rating.student_id)
+
+    def perform_destroy(self, instance):
+        student_id = instance.student_id
+        instance.delete()
+        _refresh_belt_readiness(student_id)
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -2096,6 +2190,8 @@ class FacialRecognitionViewSet(viewsets.ViewSet):
                     recipient='admin@instructor',
                 )
 
+        _refresh_belt_readiness(*(attendance.student_id for attendance in created_attendance))
+
         return Response({
             'created_count': len(created_attendance),
             'errors': errors,
@@ -2286,6 +2382,8 @@ class FacialRecognitionViewSet(viewsets.ViewSet):
                 errors.append(f'Student {student_id} not found')
             except Exception as e:
                 errors.append(f'Error recording attendance for student {student_id}: {str(e)}')
+
+        _refresh_belt_readiness(*(attendance.student_id for attendance in created_attendance))
 
         return Response({
             'created_count': len(created_attendance),

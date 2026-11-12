@@ -25,6 +25,7 @@ import {
 } from "recharts";
 import {
   fetchStudentPerformanceDashboard,
+  refreshStudentBeltReadiness,
   fetchStudentById,
   promoteBeltProgression,
   fetchBeltProgressionArchives,
@@ -186,7 +187,11 @@ export function StudentEvaluationDashboard() {
     if (!studentId) return;
     if (!skipLoading) setLoading(true);
 
-    Promise.all([
+    refreshStudentBeltReadiness(studentId)
+      .catch((refreshError) => {
+        console.error("Failed to refresh belt readiness:", refreshError);
+      })
+      .then(() => Promise.all([
       fetchStudentById(studentId),
       fetchStudentPerformanceDashboard(studentId),
       fetchBeltProgressionArchives(studentId),
@@ -194,7 +199,7 @@ export function StudentEvaluationDashboard() {
       fetchKataRatingsByStudent(Number(studentId)).catch(() => []),
       fetchKumiteRatingsByStudent(Number(studentId)).catch(() => []),
       fetchAttendanceLogs().catch(() => []),
-    ])
+      ]))
       .then(([studentData, dashboardData, archivesData, ratingsData, kataData, kumiteData, attendanceData]) => {
         setStudent(studentData);
         setKataRating(dashboardData?.kata_rating || null);
@@ -261,9 +266,7 @@ export function StudentEvaluationDashboard() {
   };
 
   const currentReadinessStatus = beltProgression?.readiness_status || "not_ready";
-  const derivedOverallReadiness = performanceSummary?.overall_average != null
-    ? performanceSummary.overall_average
-    : beltProgression?.overall_readiness_percentage || 0;
+  const derivedOverallReadiness = beltProgression?.overall_readiness_percentage ?? 0;
 
   const normalizeBeltLabel = (label: string) => {
     const normalizedLabel = label.toLowerCase().replace(/ belt$/, "").trim();
@@ -613,7 +616,7 @@ export function StudentEvaluationDashboard() {
             <p className="text-[9px] text-neutral-600 sm:text-xs">Belt Readiness</p>
             <Zap className="hidden h-4 w-4 text-amber-500 sm:block" />
           </div>
-          <p className="text-2xl font-bold leading-none sm:text-3xl">{derivedOverallReadiness != null ? derivedOverallReadiness.toFixed(1) : "N/A"}</p>
+          <p className="text-2xl font-bold leading-none sm:text-3xl">{beltProgression ? derivedOverallReadiness.toFixed(1) : "N/A"}</p>
           <p className="mt-1 text-[8px] leading-tight text-neutral-400 sm:hidden">overall avg in last 10 sessions</p>
           <div className="mt-1 hidden items-center gap-1 sm:flex">
             {getReadinessIcon(beltProgression?.readiness_status || "")}
@@ -648,7 +651,7 @@ export function StudentEvaluationDashboard() {
               <div className="flex items-center justify-between">
                 <label className="block text-sm font-medium">Overall Readiness</label>
                 <span className={`text-2xl font-bold ${isReadyForPromotion ? 'text-green-600' : 'text-yellow-600'}`}>
-                  {derivedOverallReadiness != null ? derivedOverallReadiness.toFixed(1) : 0}%
+                  {beltProgression ? `${derivedOverallReadiness.toFixed(1)}%` : "N/A"}
                 </span>
               </div>
               <div className="w-full bg-neutral-200 rounded-full h-3">

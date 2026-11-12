@@ -2,6 +2,7 @@ import base64
 import datetime
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import cv2
@@ -22,6 +23,7 @@ from .models import (
     InstructorRating,
     Inventory,
     KataRating,
+    KumiteRating,
     Notification,
     ParentStudent,
     PerformanceSummary,
@@ -44,6 +46,43 @@ from .performance.services import (
     GamificationService,
     PerformanceAggregationService,
 )
+
+
+class AnalyticsOverviewAllTimeAverageTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='analytics-instructor',
+            email='analytics-instructor@example.com',
+            password='StrongPass!482',
+            role='instructor',
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_overall_average_uses_equal_weighted_student_all_time_averages(self):
+        first_student = Student.objects.create(first_name='Mina', last_name='Sato', gender='Female')
+        second_student = Student.objects.create(first_name='Aiko', last_name='Tanaka', gender='Female')
+        Student.objects.create(first_name='Ren', last_name='Ito', gender='Male')
+
+        KataRating.objects.create(student=first_student, combined_kata_score=80)
+        KumiteRating.objects.create(student=first_student, combined_kumite_score=60)
+        InstructorRating.objects.create(
+            student=first_student,
+            kata_score=100,
+            kumite_score=40,
+            discipline_score=80,
+            date_evaluated=datetime.date(2026, 1, 1),
+        )
+        InstructorRating.objects.create(
+            student=second_student,
+            discipline_score=48,
+            date_evaluated=datetime.date(2026, 1, 1),
+        )
+
+        response = self.client.get('/api/students/analytics/overview/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['descriptive']['average_student_all_time_average'], 40.0)
 
 
 class InventoryImageServingTests(SimpleTestCase):
@@ -159,6 +198,157 @@ class BeltProgressionSummaryTests(TestCase):
             ).count(),
             1,
         )
+
+    def test_refresh_readiness_endpoint_creates_the_current_belt_record(self):
+        user = get_user_model().objects.create_user(
+            username='readiness-refresh-instructor',
+            email='readiness-refresh-instructor@example.com',
+            password='StrongPass!482',
+            role='instructor',
+        )
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        response = client.post(
+            f'/api/students/students/{self.student.student_id}/refresh-readiness/',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        indicator = PerformanceSummary.objects.get(
+            student=self.student,
+            period=PerformanceSummary.BELT_PROGRESSION_PERIOD,
+        )
+        self.assertEqual(response.data['id'], indicator.pk)
+        self.assertEqual(indicator.attendance_requirement, 75.0)
+
+    def test_instructor_rating_changes_refresh_the_belt_readiness_record(self):
+        user = get_user_model().objects.create_user(
+            username='readiness-rating-instructor',
+            email='readiness-rating-instructor@example.com',
+            password='StrongPass!482',
+            role='instructor',
+        )
+        client = APIClient()
+        client.force_authenticate(user=user)
+        rating_response = client.post(
+            '/api/students/instructor-ratings/',
+            {
+                'student': self.student.student_id,
+                'kata_score': 80,
+                'kumite_score': 87,
+                'discipline_score': 85,
+                'date_evaluated': timezone.localdate().isoformat(),
+            },
+            format='json',
+        )
+
+        self.assertEqual(rating_response.status_code, 201, rating_response.data)
+        indicator = PerformanceSummary.objects.get(
+            student=self.student,
+            period=PerformanceSummary.BELT_PROGRESSION_PERIOD,
+        )
+        self.assertEqual(indicator.kumite_readiness, 100.0)
+        self.assertEqual(indicator.discipline_readiness, 100.0)
+
+        update_response = client.patch(
+            f"/api/students/instructor-ratings/{rating_response.data['id']}/",
+            {'kumite_score': 35},
+            format='json',
+        )
+
+        self.assertEqual(update_response.status_code, 200, update_response.data)
+        indicator.refresh_from_db()
+        self.assertEqual(indicator.kumite_readiness, 50.0)
+
+        delete_response = client.delete(
+            f"/api/students/instructor-ratings/{rating_response.data['id']}/",
+        )
+
+        self.assertEqual(delete_response.status_code, 204)
+        indicator.refresh_from_db()
+        self.assertEqual(indicator.readiness_status, 'not_ready')
+        self.assertEqual(indicator.overall_readiness_percentage, 0.0)
+
+    def test_manual_attendance_refreshes_attendance_readiness(self):
+        user = get_user_model().objects.create_user(
+            username='readiness-attendance-instructor',
+            email='readiness-attendance-instructor@example.com',
+            password='StrongPass!482',
+            role='instructor',
+        )
+        session = Session.objects.create(
+            date=timezone.localdate(),
+            start_time=datetime.time(9, 0),
+            end_time=datetime.time(10, 0),
+            venue='Main dojo',
+            session_type='regular',
+        )
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        response = client.post(
+            '/api/students/facial-recognition/record_manual_attendance/',
+            {
+                'session_id': session.session_id,
+                'attendance': [{'student_id': self.student.student_id, 'present': True}],
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        indicator = PerformanceSummary.objects.get(
+            student=self.student,
+            period=PerformanceSummary.BELT_PROGRESSION_PERIOD,
+        )
+        self.assertEqual(indicator.attendance_readiness, 100.0)
+
+    def test_refresh_current_indicator_uses_combined_kata_and_current_readiness_thresholds(self):
+        with (
+            patch.object(
+                PerformanceAggregationService,
+                'compute_current_kata_rating',
+                return_value=SimpleNamespace(combined_kata_score=79.4),
+            ),
+            patch.object(
+                PerformanceAggregationService,
+                'compute_current_performance_summary',
+                return_value=SimpleNamespace(discipline_average=85.0),
+            ),
+            patch.object(PerformanceAggregationService, 'calculate_attendance_percentage', return_value=85.0),
+            patch.object(PerformanceAggregationService, 'get_current_belt_instructor_kumite_average', return_value=87.0),
+        ):
+            indicator = BeltProgressionService.refresh_current_indicator(self.student)
+
+        self.assertEqual(indicator.kata_readiness, 100.0)
+        self.assertEqual(indicator.kumite_readiness, 100.0)
+        self.assertEqual(indicator.discipline_readiness, 100.0)
+        self.assertEqual(indicator.attendance_readiness, 100.0)
+        self.assertEqual(indicator.overall_readiness_percentage, 100.0)
+        self.assertEqual(indicator.readiness_status, 'ready')
+        self.assertEqual(indicator.attendance_requirement, 75.0)
+
+    def test_progression_readiness_uses_combined_kata_score_and_75_percent_attendance_target(self):
+        with (
+            patch.object(
+                PerformanceAggregationService,
+                'aggregate_kata_score',
+                return_value=SimpleNamespace(combined_kata_score=75.0),
+            ),
+            patch.object(PerformanceAggregationService, 'aggregate_kumite_score', return_value=None),
+            patch.object(
+                PerformanceAggregationService,
+                'generate_performance_summary',
+                return_value=SimpleNamespace(kata_average=40.0, discipline_average=80.0),
+            ),
+            patch.object(PerformanceAggregationService, 'calculate_attendance_percentage', return_value=75.0),
+            patch.object(PerformanceAggregationService, 'get_current_belt_instructor_kumite_average', return_value=70.0),
+        ):
+            result = PerformanceAggregationService.generate_student_progression(self.student)
+
+        indicator = result['belt_progression_indicator']
+        self.assertEqual(indicator.kata_readiness, 100.0)
+        self.assertEqual(indicator.attendance_requirement, 75.0)
+        self.assertEqual(indicator.attendance_readiness, 100.0)
 
     def test_apis_keep_summary_and_progression_results_separate(self):
         user = get_user_model().objects.create_user(
@@ -584,6 +774,10 @@ class StanceEvaluationSaveTests(TestCase):
         self.assertEqual(save_response.data['date_evaluated'], self.session.date.isoformat())
         self.assertEqual(save_response.data['analysis_details']['session_id'], self.session.session_id)
         self.assertEqual(StanceEvaluation.objects.count(), 1)
+        self.assertTrue(PerformanceSummary.objects.filter(
+            student=self.student,
+            period=PerformanceSummary.BELT_PROGRESSION_PERIOD,
+        ).exists())
         self.assertEqual(Notification.objects.filter(
             notification_type='pose_evaluation_completed',
         ).count(), 1)

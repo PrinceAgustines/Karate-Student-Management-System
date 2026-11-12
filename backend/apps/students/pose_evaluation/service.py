@@ -355,9 +355,6 @@ class PoseEvaluationService:
             'similarity': round(confidence, 4),
             'threshold': self.REFERENCE_MATCH_THRESHOLD,
         }
-        if not reference_match['matched']:
-            return 'Unknown Stance', confidence, reference_match
-
         return stance_label, confidence, reference_match
 
     def parse_uploaded_image(self, uploaded_file) -> Optional[np.ndarray]:

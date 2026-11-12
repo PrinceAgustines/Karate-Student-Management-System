@@ -7,12 +7,33 @@ import { fetchAnalyticsOverview, fetchAttendanceRisk, fetchSessions, fetchStuden
 
 type StudentRecord = { student_id: number; first_name: string; last_name: string; role: string };
 type SessionRecord = { session_id: number; date: string; start_time: string; end_time: string; venue: string; session_type: string };
-type AnalyticsOverview = { descriptive: { avg_session_attendance: number; promotion_ready_count: number }; attendance_trend: Array<{ date: string; attendance: number }>; belt_distribution: Array<{ belt: string; count: number }>; pose_evaluation_trend: Array<{ session_date: string; avg_pose_score: number }>; sparring_kumite_trend: Array<{ match_date: string; avg_kumite_score: number }> };
+type AnalyticsOverview = { descriptive: { avg_session_attendance: number; average_student_all_time_average: number; promotion_ready_count: number }; attendance_trend: Array<{ date: string; attendance: number }>; belt_distribution: Array<{ belt: string; count: number }>; pose_evaluation_trend: Array<{ session_date: string; avg_pose_score: number }>; sparring_kumite_trend: Array<{ match_date: string; avg_kumite_score: number }> };
 type AttendancePrediction = { student_id: number; student_name: string; missed_sessions_recently: number; absence_probability: number; risk_level: "low" | "medium" | "high"; sessions_considered: number };
 type AttendanceRisk = { next_session: (SessionRecord & { expected_count: number }) | null; predictions: AttendancePrediction[] };
 type Tone = "blue" | "violet" | "amber" | "emerald";
 
-const beltColors = ["#a200ff", "#75350a", "#06c00f", "#f8f8e9", "#fda500", "#00050c"];
+const beltColorByRank: Record<string, string> = {
+  "white belt": "#ffffff",
+  white: "#ffffff",
+  "yellow belt": "#ffd700",
+  yellow: "#ffd700",
+  "orange belt": "#ffa500",
+  orange: "#ffa500",
+  "green belt": "#00aa00",
+  green: "#00aa00",
+  "purple belt": "#9932cc",
+  purple: "#9932cc",
+  "1st class purple belt": "#7b2cbf",
+  "1st class purple": "#7b2cbf",
+  "brown belt": "#8b4513",
+  brown: "#8b4513",
+  "1st class brown belt": "#654321",
+  "1st class brown": "#654321",
+  "2nd class brown belt": "#3c2415",
+  "2nd class brown": "#3c2415",
+  "black belt": "#000000",
+  black: "#000000",
+};
 const toneClasses: Record<Tone, { icon: string; text: string; bar: string }> = {
   blue: { icon: "bg-red-50 text-red-700", text: "text-red-700", bar: "bg-red-600" },
   violet: { icon: "bg-red-50 text-red-700", text: "text-red-700", bar: "bg-red-600" },
@@ -56,7 +77,10 @@ export function InstructorDashboard() {
   }, []);
   useEffect(() => { loadData(); }, [loadData]);
 
-  const beltData = useMemo(() => (analytics?.belt_distribution ?? []).map((item, index) => ({ ...item, color: beltColors[index % beltColors.length] })), [analytics]);
+  const beltData = useMemo(() => (analytics?.belt_distribution ?? []).map((item) => {
+    const rank = item.belt.trim().toLowerCase().replace(/\s+/g, " ");
+    return { ...item, color: beltColorByRank[rank] ?? "#737373" };
+  }), [analytics]);
   const predictions = riskData?.predictions ?? [];
   const sortedPredictions = useMemo(
     () => [...predictions].sort((a, b) => b.absence_probability - a.absence_probability),
@@ -66,7 +90,7 @@ export function InstructorDashboard() {
   const metrics = [
     { label: "Total Students", value: students.filter((student) => student.role === "Student").length, icon: Users, tone: "blue" as Tone },
     { label: "Total Schedules and Sessions", value: sessions.length, icon: CalendarDays, tone: "violet" as Tone },
-    { label: "Overall Average of All Students", value: `${analytics?.descriptive.avg_session_attendance ?? 0}%`, icon: BarChart3, tone: "amber" as Tone },
+    { label: "Overall Average of All Students", value: (analytics?.descriptive.average_student_all_time_average ?? 0).toFixed(1), icon: BarChart3, tone: "amber" as Tone },
     { label: "Ready For Belt Promotion", value: analytics?.descriptive.promotion_ready_count ?? 0, icon: Award, tone: "emerald" as Tone },
   ];
 
@@ -165,7 +189,14 @@ export function InstructorDashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={beltData} dataKey="count" nameKey="belt" outerRadius={76} label>
-                        {beltData.map((entry) => <Cell key={entry.belt} fill={entry.color} />)}
+                        {beltData.map((entry) => (
+                          <Cell
+                            key={entry.belt}
+                            fill={entry.color}
+                            stroke={entry.color === "#ffffff" ? "#a3a3a3" : "#ffffff"}
+                            strokeWidth={2}
+                          />
+                        ))}
                       </Pie>
                       <Tooltip />
                     </PieChart>

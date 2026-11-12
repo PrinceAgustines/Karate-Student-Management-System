@@ -530,7 +530,7 @@ class PerformanceAggregationService:
         attendance_percentage = PerformanceAggregationService.calculate_attendance_percentage(student, date_from, date_to)
         belt_indicator = BeltProgressionService.create_or_update_indicator(
             student,
-            performance_summary.kata_average,
+            kata_rating.combined_kata_score,
             PerformanceAggregationService.get_current_belt_instructor_kumite_average(student),
             performance_summary.discipline_average,
             attendance_percentage,
@@ -684,7 +684,7 @@ class BeltProgressionService:
         'kata': 75.0,
         'kumite': 70.0,
         'discipline': 80.0,
-        'attendance': 85.0,
+        'attendance': 75.0,
     }
 
     @staticmethod
@@ -899,7 +899,19 @@ class BeltProgressionService:
     @staticmethod
     def create_or_update_indicator(student: Student, kata_average: float, kumite_average: float, discipline_average: float, attendance_percentage: float):
         readiness = BeltProgressionService.calculate_readiness(student, kata_average, kumite_average, discipline_average, attendance_percentage)
-        today = timezone.now().date()
+        today = timezone.localdate()
+        existing = PerformanceSummary.objects.filter(
+            student=student,
+            period=PerformanceSummary.BELT_PROGRESSION_PERIOD,
+        ).first()
+        eligible_since = None
+        if readiness['readiness_status'] == 'ready':
+            eligible_since = (
+                existing.eligible_since
+                if existing and existing.readiness_status == 'ready' and existing.eligible_since
+                else today
+            )
+
         indicator, _ = PerformanceSummary.objects.update_or_create(
             student=student,
             period=PerformanceSummary.BELT_PROGRESSION_PERIOD,
@@ -918,10 +930,47 @@ class BeltProgressionService:
                 'kumite_requirement': BeltProgressionService.DEFAULT_REQUIREMENTS['kumite'],
                 'discipline_requirement': BeltProgressionService.DEFAULT_REQUIREMENTS['discipline'],
                 'attendance_requirement': BeltProgressionService.DEFAULT_REQUIREMENTS['attendance'],
-                'eligible_since': timezone.now().date() if readiness['readiness_status'] == 'ready' else None,
+                'eligible_since': eligible_since,
             },
         )
         return indicator
+
+    @staticmethod
+    def refresh_current_indicator(student: Student):
+        date_from, date_to = PerformanceAggregationService._build_date_range('monthly')
+        date_from, date_to = PerformanceAggregationService._apply_promotion_cutoff(
+            student,
+            date_from,
+            date_to,
+        )
+        kata_rating = PerformanceAggregationService.compute_current_kata_rating(
+            student,
+            date_from,
+            date_to,
+        )
+        performance_summary = PerformanceAggregationService.compute_current_performance_summary(
+            student,
+            'monthly',
+            date_from,
+            date_to,
+        )
+        attendance_percentage = PerformanceAggregationService.calculate_attendance_percentage(
+            student,
+            date_from,
+            date_to,
+        )
+        kumite_average = PerformanceAggregationService.get_current_belt_instructor_kumite_average(
+            student,
+            date_to,
+        )
+
+        return BeltProgressionService.create_or_update_indicator(
+            student,
+            kata_rating.combined_kata_score if kata_rating else 0.0,
+            kumite_average,
+            performance_summary.discipline_average,
+            attendance_percentage,
+        )
 
 
 class GamificationService:
